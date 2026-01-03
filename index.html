@@ -22,29 +22,32 @@
   <main class="container">
     <!-- Status Section -->
     <section class="status-section" aria-label="Current visibility status">
-      <h1 class="page-title">Is Mt. Rainier Out?</h1>
-
-      <div id="status-display" class="status-card">
-        <div class="status-card__loading">
-          <div class="spinner"></div>
-          <p>Loading...</p>
+      <div class="status-header">
+        <h1 class="page-title">Is Mt. Rainier Out?</h1>
+        <div id="status-display" class="status-value">
+          <div class="status-value__loading">
+            <div class="spinner"></div>
+          </div>
         </div>
       </div>
     </section>
 
-    <!-- Image Section -->
-    <section class="image-section" aria-label="Latest webcam image">
-      <div id="image-viewer" class="image-viewer">
-        <div class="image-viewer__loading">
-          <div class="spinner"></div>
+    <!-- Image and Metadata Section -->
+    <section class="content-section">
+      <div class="content-wrapper">
+        <div class="image-section" aria-label="Latest webcam image">
+          <div id="image-viewer" class="image-viewer">
+            <div class="image-viewer__loading">
+              <div class="spinner"></div>
+            </div>
+          </div>
         </div>
-      </div>
-    </section>
 
-    <!-- Metadata Section -->
-    <section class="metadata-section" aria-label="Analysis details">
-      <div id="metadata-display" class="metadata">
-        <!-- Populated by JS -->
+        <div class="metadata-section" aria-label="Analysis details">
+          <div id="metadata-display" class="metadata">
+            <!-- Populated by JS -->
+          </div>
+        </div>
       </div>
     </section>
 

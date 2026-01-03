@@ -5,8 +5,8 @@ body {
   font-size: var(--font-size-base);
   line-height: var(--line-height-normal);
   color: var(--color-gray-900);
-  /* Natural mountain gradient - alpine meadow to forest */
-  background: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 50%, #6ee7b7 100%);
+  /* National Park Service inspired gradient - sky to forest */
+  background: linear-gradient(135deg, #83d659 0%, #69ad48 70%, #56903A 100%);
   background-attachment: fixed;
 }
 

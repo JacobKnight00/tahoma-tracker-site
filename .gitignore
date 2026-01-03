@@ -27,3 +27,6 @@ build/
 # Temporary files
 tmp/
 temp/
+
+# Other
+CLAUDE.md

@@ -6,7 +6,7 @@ export const config = {
   api: {
     // For local development, use a local JSON file
     // For production, this will be the S3/CloudFront URL
-    latestUrl: '/latest.json',
+    latestUrl: 'https://deaf937kouf5m.cloudfront.net/latest/latest.json',
 
     // Label submission endpoint (will be API Gateway URL)
     submitLabelUrl: '/api/labels',
@@ -21,7 +21,7 @@ export const config = {
   // S3/CDN base URL for images
   // For local dev, use placeholder
   // For production, use CloudFront or S3 URL
-  imageBaseUrl: '/assets/images',
+  imageBaseUrl: 'https://deaf937kouf5m.cloudfront.net',
 
   // Date range for historical data
   historicalDataStart: '2025-01-01',

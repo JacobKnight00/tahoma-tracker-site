@@ -1,7 +1,7 @@
 // Metadata Display Component
 // Shows frame state, model version, threshold, etc.
 
-import { formatTimestamp, snakeToTitle } from '../utils/format.js';
+import { formatTimestamp, formatPercent, snakeToTitle } from '../utils/format.js';
 import { createElement, clearElement } from '../utils/dom.js';
 
 export class MetadataDisplay {
@@ -18,6 +18,12 @@ export class MetadataDisplay {
 
     const items = [
       {
+        label: 'Confidence',
+        value: data.out_prob !== null && data.out_prob !== undefined
+          ? formatPercent(data.out_prob)
+          : '--',
+      },
+      {
         label: 'Frame State',
         value: data.frame_state ? snakeToTitle(data.frame_state) : '--',
       },
@@ -33,7 +39,7 @@ export class MetadataDisplay {
       },
       {
         label: 'Captured',
-        value: data.ts ? formatTimestamp(data.ts) : '--',
+        value: (data.ts || data.timestamp) ? formatTimestamp(data.ts || data.timestamp) : '--',
       },
     ];
 

@@ -1,69 +1,74 @@
 /* Home Page Styles */
 
-.page-title {
-  text-align: center;
-  margin-bottom: var(--space-2xl);
-  color: var(--color-white);
-  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
-}
-
 /* Status Section */
 
 .status-section {
   margin-bottom: var(--space-3xl);
-}
-
-.status-card {
-  background: var(--color-white);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-md);
-  padding: var(--space-lg) var(--space-xl);
-  text-align: center;
   animation: fadeInUp 0.6s ease-out;
 }
 
-.status-card__loading {
+.status-header {
   display: flex;
-  flex-direction: column;
   align-items: center;
+  justify-content: center;
   gap: var(--space-lg);
-  padding: var(--space-3xl) 0;
+  flex-wrap: wrap;
 }
 
-.status-card__value {
-  font-size: var(--font-size-3xl);
+.page-title {
+  color: var(--color-white);
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  margin: 0;
+  font-size: var(--font-size-4xl);
+}
+
+.status-value {
+  display: inline-flex;
+  align-items: center;
+}
+
+.status-value__loading {
+  display: inline-flex;
+}
+
+.status-value__text {
+  font-size: var(--font-size-4xl);
   font-weight: var(--font-weight-bold);
   line-height: var(--line-height-tight);
-  margin-bottom: var(--space-xs);
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
 }
 
-.status-card__value--positive {
-  color: var(--color-success);
+.status-value__text--positive {
+  color: #213A1B;
 }
 
-.status-card__value--negative {
+.status-value__text--negative {
   color: var(--color-danger);
 }
 
-.status-card__value--unknown {
-  color: var(--color-neutral);
+.status-value__text--unknown {
+  color: var(--color-white);
 }
 
-.status-card__confidence {
-  font-size: var(--font-size-base);
-  color: var(--color-gray-600);
-  font-family: var(--font-mono);
+/* Content Section - Image and Metadata */
+
+.content-section {
+  margin-bottom: var(--space-3xl);
+  animation: fadeInUp 0.6s ease-out 0.1s both;
 }
 
-.status-card__error {
-  color: var(--color-danger);
-  font-size: var(--font-size-lg);
+.content-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: var(--content-gap);
+  max-width: var(--content-max-width-mobile);
+  margin: 0 auto;
 }
 
 /* Image Section */
 
 .image-section {
-  margin-bottom: var(--space-3xl);
+  flex: 0 0 auto;
 }
 
 .image-viewer {
@@ -71,14 +76,13 @@
   border-radius: var(--radius-xl);
   box-shadow: var(--shadow-lg);
   overflow: hidden;
-  animation: fadeInUp 0.6s ease-out 0.1s both;
 }
 
 .image-viewer__loading {
   display: flex;
   align-items: center;
   justify-content: center;
-  min-height: 400px;
+  min-height: 300px;
 }
 
 .image-viewer__img {
@@ -96,21 +100,37 @@
 /* Metadata Section */
 
 .metadata-section {
-  margin-bottom: var(--space-3xl);
+  flex: 0 1 auto;
+  display: flex;
+  align-items: stretch;
 }
 
 .metadata {
-  background: rgba(255, 255, 255, 0.95);
+  background: #f7e2cf;
   border-radius: var(--radius-lg);
   padding: var(--space-xl);
   box-shadow: var(--shadow-md);
-  animation: fadeInUp 0.6s ease-out 0.2s both;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
 }
 
 .metadata__grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  grid-template-columns: 1fr;
   gap: var(--space-lg);
+}
+
+@media (min-width: 640px) {
+  .metadata__grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (min-width: 1024px) {
+  .metadata__grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 .metadata__item {
@@ -141,10 +161,12 @@
 }
 
 .correction-details {
-  background: rgba(255, 255, 255, 0.95);
+  background: #f7e2cf;
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-md);
   overflow: hidden;
+  max-width: var(--content-max-width-mobile);
+  margin: 0 auto;
 }
 
 .correction-summary {
@@ -240,11 +262,43 @@
 /* Responsive */
 
 @media (min-width: 768px) {
-  .status-card {
-    padding: var(--space-xl) var(--space-2xl);
+  .page-title {
+    font-size: var(--font-size-5xl);
+  }
+
+  .status-value__text {
+    font-size: var(--font-size-5xl);
   }
 
   .image-viewer__loading {
-    min-height: 500px;
+    min-height: 400px;
+  }
+}
+
+@media (min-width: 1024px) {
+  /* When image is not too large, put metadata next to it */
+  .content-wrapper {
+    flex-direction: row;
+    align-items: stretch;
+    max-width: var(--content-max-width-desktop);
+  }
+
+  .image-section {
+    flex: 0 1 auto;
+    max-width: var(--image-max-width-desktop);
+  }
+
+  .metadata-section {
+    flex: 0 0 var(--metadata-width-desktop);
+    max-width: var(--metadata-width-desktop);
+  }
+
+  .metadata {
+    height: 100%;
+  }
+
+  /* Match correction section width to content wrapper */
+  .correction-details {
+    max-width: var(--content-max-width-desktop);
   }
 }

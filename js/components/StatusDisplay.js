@@ -14,9 +14,8 @@ export class StatusDisplay {
    */
   renderLoading() {
     this.container.innerHTML = `
-      <div class="status-card__loading">
+      <div class="status-value__loading">
         <div class="spinner"></div>
-        <p>Loading...</p>
       </div>
     `;
   }
@@ -27,9 +26,7 @@ export class StatusDisplay {
    */
   renderError(message) {
     this.container.innerHTML = `
-      <div class="status-card__error">
-        <p>${message}</p>
-      </div>
+      <span class="status-value__text status-value__text--unknown">?</span>
     `;
   }
 
@@ -51,25 +48,14 @@ export class StatusDisplay {
 
     // Create elements
     const statusValue = createElement(
-      'h2',
+      'span',
       {
-        class: `status-card__value status-card__value--${statusClass}`,
+        class: `status-value__text status-value__text--${statusClass}`,
         'aria-label': `Mt. Rainier is ${statusText.toLowerCase()}`,
       },
       statusText
     );
 
-    const confidence = createElement(
-      'p',
-      { class: 'status-card__confidence' },
-      data.out_prob !== null && data.out_prob !== undefined
-        ? `${formatPercent(data.out_prob)} confident`
-        : ''
-    );
-
     this.container.appendChild(statusValue);
-    if (confidence.textContent) {
-      this.container.appendChild(confidence);
-    }
   }
 }

@@ -71,10 +71,11 @@ async function loadLatestData() {
     metadataDisplay.render(data);
 
     // Initialize label form if not already done
-    if (data.ts && !labelForm) {
+    const timestamp = data.ts || data.timestamp;
+    if (timestamp && !labelForm) {
       labelForm = new LabelForm(
         document.getElementById('label-form-container'),
-        data.ts
+        timestamp
       );
       labelForm.render();
     }
