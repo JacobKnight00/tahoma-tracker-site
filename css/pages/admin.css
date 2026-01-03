@@ -1,0 +1,174 @@
+/* Admin Page Styles */
+
+.admin-page {
+  background: var(--color-gray-50);
+}
+
+.admin-container {
+  max-width: 100%;
+  padding: 0;
+}
+
+/* Admin Header */
+
+.admin-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-lg) var(--space-xl);
+  background: var(--color-white);
+  border-bottom: 1px solid var(--color-gray-200);
+  box-shadow: var(--shadow-sm);
+}
+
+.admin-header__title {
+  font-size: var(--font-size-2xl);
+  color: var(--color-gray-900);
+}
+
+.admin-header__controls {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+}
+
+/* Admin Layout */
+
+.admin-layout {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--space-lg);
+  padding: var(--space-lg);
+  min-height: calc(100vh - 80px);
+}
+
+@media (min-width: 1024px) {
+  .admin-layout {
+    grid-template-columns: 2fr 1fr;
+    padding: var(--space-xl);
+  }
+}
+
+/* Image Viewer */
+
+.admin-layout__image {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.admin-image-viewer {
+  background: var(--color-white);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
+  overflow: hidden;
+  min-height: 400px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.admin-image-viewer__loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-md);
+  padding: var(--space-3xl);
+  text-align: center;
+  color: var(--color-gray-600);
+}
+
+.admin-image-viewer__img {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+.admin-image-viewer__error {
+  padding: var(--space-3xl);
+  text-align: center;
+  color: var(--color-danger);
+}
+
+/* Image Info */
+
+.image-info {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-lg);
+  padding: var(--space-md);
+  background: var(--color-white);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+  font-size: var(--font-size-sm);
+  font-family: var(--font-mono);
+}
+
+.image-info__item {
+  display: flex;
+  gap: var(--space-sm);
+}
+
+/* Controls */
+
+.admin-layout__controls {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xl);
+}
+
+/* Label Pills */
+
+.label-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+  padding: var(--space-lg);
+  background: var(--color-white);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
+}
+
+/* DateTime Picker */
+
+.datetime-picker {
+  display: grid;
+  grid-template-columns: 1fr 1fr auto;
+  gap: var(--space-sm);
+}
+
+/* Filter Controls */
+
+.filter-controls {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  padding: var(--space-lg);
+  background: var(--color-white);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+}
+
+/* Responsive adjustments */
+
+@media (max-width: 1023px) {
+  .admin-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--space-md);
+  }
+
+  .admin-header__controls {
+    width: 100%;
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .button-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .datetime-picker {
+    grid-template-columns: 1fr;
+  }
+}

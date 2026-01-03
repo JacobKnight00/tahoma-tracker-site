@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Is Mt. Rainier visible right now? Check the current visibility status from the Space Needle webcam.">
+  <title>Is Mt. Rainier Out? | Tahoma Tracker</title>
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+
+  <!-- Stylesheets -->
+  <link rel="stylesheet" href="/css/reset.css">
+  <link rel="stylesheet" href="/css/variables.css">
+  <link rel="stylesheet" href="/css/base.css">
+  <link rel="stylesheet" href="/css/components.css">
+  <link rel="stylesheet" href="/css/pages/home.css">
+</head>
+<body>
+  <main class="container">
+    <!-- Status Section -->
+    <section class="status-section" aria-label="Current visibility status">
+      <h1 class="page-title">Is Mt. Rainier Out?</h1>
+
+      <div id="status-display" class="status-card">
+        <div class="status-card__loading">
+          <div class="spinner"></div>
+          <p>Loading...</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Image Section -->
+    <section class="image-section" aria-label="Latest webcam image">
+      <div id="image-viewer" class="image-viewer">
+        <div class="image-viewer__loading">
+          <div class="spinner"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Metadata Section -->
+    <section class="metadata-section" aria-label="Analysis details">
+      <div id="metadata-display" class="metadata">
+        <!-- Populated by JS -->
+      </div>
+    </section>
+
+    <!-- Label Correction Section (Crowdsource) -->
+    <section class="correction-section" aria-label="Submit a correction">
+      <details class="correction-details">
+        <summary class="correction-summary">Think this is wrong? Submit a correction</summary>
+        <div id="label-form-container" class="correction-form">
+          <!-- Populated by JS -->
+        </div>
+      </details>
+    </section>
+
+    <!-- Footer -->
+    <footer class="footer">
+      <p class="footer__text">
+        Data from <a href="https://www.spaceneedle.com/webcam/" target="_blank" rel="noopener">Space Needle Webcam</a>
+      </p>
+      <p class="footer__text footer__text--small">
+        Last updated: <span id="last-updated">--</span>
+      </p>
+    </footer>
+  </main>
+
+  <!-- JavaScript -->
+  <script type="module" src="/js/main.js"></script>
+</body>
+</html>

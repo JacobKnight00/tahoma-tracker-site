@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin Labeling | Tahoma Tracker</title>
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+
+  <!-- Stylesheets -->
+  <link rel="stylesheet" href="/css/reset.css">
+  <link rel="stylesheet" href="/css/variables.css">
+  <link rel="stylesheet" href="/css/base.css">
+  <link rel="stylesheet" href="/css/components.css">
+  <link rel="stylesheet" href="/css/pages/admin.css">
+</head>
+<body class="admin-page">
+  <div class="admin-container">
+    <!-- Header -->
+    <header class="admin-header">
+      <h1 class="admin-header__title">Rapid Labeling</h1>
+      <div class="admin-header__controls">
+        <button id="mode-toggle" class="button button--secondary" aria-label="Toggle navigation mode">
+          Mode: <span id="current-mode">Queue</span>
+        </button>
+        <a href="/" class="button button--ghost">Back to Home</a>
+      </div>
+    </header>
+
+    <div class="admin-layout">
+      <!-- Left: Image Display -->
+      <div class="admin-layout__image">
+        <div id="admin-image-viewer" class="admin-image-viewer">
+          <div class="admin-image-viewer__loading">
+            <div class="spinner"></div>
+            <p>Loading image...</p>
+          </div>
+        </div>
+
+        <!-- Image Info -->
+        <div id="image-info" class="image-info">
+          <span class="image-info__item">
+            <strong>ID:</strong> <span id="image-id">--</span>
+          </span>
+          <span class="image-info__item">
+            <strong>Time:</strong> <span id="image-time">--</span>
+          </span>
+        </div>
+      </div>
+
+      <!-- Right: Controls -->
+      <div class="admin-layout__controls">
+        <!-- Current Labels (Pills) -->
+        <div class="label-pills" id="label-pills">
+          <span class="pill pill--frame" id="pill-frame-state">Frame: --</span>
+          <span class="pill pill--visibility" id="pill-visibility">Visibility: --</span>
+        </div>
+
+        <!-- Frame State Controls -->
+        <div class="control-group">
+          <h2 class="control-group__title">Frame State</h2>
+          <div class="button-grid">
+            <button data-action="label-frame" data-value="good" class="button button--large">
+              <kbd>G</kbd> Good
+            </button>
+            <button data-action="label-frame" data-value="off_target" class="button button--large">
+              <kbd>F</kbd> Out of Frame
+            </button>
+            <button data-action="label-frame" data-value="dark" class="button button--large">
+              <kbd>D</kbd> Dark
+            </button>
+            <button data-action="label-frame" data-value="bad" class="button button--large">
+              <kbd>B</kbd> Bad or Blurry
+            </button>
+          </div>
+        </div>
+
+        <!-- Visibility Controls (only enabled if frame=good) -->
+        <div class="control-group">
+          <h2 class="control-group__title">Visibility</h2>
+          <div class="button-grid">
+            <button data-action="label-visibility" data-value="out" class="button button--large" disabled>
+              <kbd>O</kbd> Out
+            </button>
+            <button data-action="label-visibility" data-value="partial" class="button button--large" disabled>
+              <kbd>P</kbd> Partial
+            </button>
+            <button data-action="label-visibility" data-value="not_out" class="button button--large" disabled>
+              <kbd>N</kbd> Not Out
+            </button>
+          </div>
+        </div>
+
+        <!-- Navigation Controls -->
+        <div class="control-group">
+          <h2 class="control-group__title">Navigation</h2>
+          <div class="button-grid">
+            <button data-action="nav-prev" class="button button--secondary">
+              <kbd>←</kbd> Previous
+            </button>
+            <button data-action="nav-next" class="button button--secondary">
+              <kbd>→</kbd> Next
+            </button>
+            <button data-action="nav-next-unlabeled" class="button button--primary">
+              <kbd>Space</kbd> Next Unlabeled
+            </button>
+          </div>
+        </div>
+
+        <!-- Date/Time Picker -->
+        <div class="control-group">
+          <h2 class="control-group__title">Jump to Date/Time</h2>
+          <div class="datetime-picker">
+            <input type="date" id="date-picker" class="input" min="2025-01-01">
+            <input type="time" id="time-picker" class="input" step="600">
+            <button data-action="jump-to-datetime" class="button button--secondary">Go</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Keyboard Shortcut Help (Optional) -->
+  <div id="help-overlay" class="help-overlay" hidden>
+    <div class="help-overlay__content">
+      <h2>Keyboard Shortcuts</h2>
+      <ul>
+        <li><kbd>G</kbd> - Mark as Good</li>
+        <li><kbd>F</kbd> - Mark as Off-Target</li>
+        <li><kbd>D</kbd> - Mark as Dark</li>
+        <li><kbd>B</kbd> - Mark as Bad/Blurry</li>
+        <li><kbd>O</kbd> - Mark as Out (visible)</li>
+        <li><kbd>P</kbd> - Mark as Partial</li>
+        <li><kbd>N</kbd> - Mark as Not Out</li>
+        <li><kbd>←</kbd> - Previous image</li>
+        <li><kbd>→</kbd> - Next image</li>
+        <li><kbd>Space</kbd> - Next unlabeled</li>
+        <li><kbd>?</kbd> - Toggle this help</li>
+      </ul>
+      <button data-action="close-help" class="button button--primary">Close</button>
+    </div>
+  </div>
+
+  <!-- JavaScript -->
+  <script type="module" src="/js/admin/label.js"></script>
+</body>
+</html>

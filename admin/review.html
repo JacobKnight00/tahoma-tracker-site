@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin Review | Tahoma Tracker</title>
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+
+  <!-- Stylesheets -->
+  <link rel="stylesheet" href="/css/reset.css">
+  <link rel="stylesheet" href="/css/variables.css">
+  <link rel="stylesheet" href="/css/base.css">
+  <link rel="stylesheet" href="/css/components.css">
+  <link rel="stylesheet" href="/css/pages/admin.css">
+</head>
+<body class="admin-page">
+  <div class="admin-container">
+    <!-- Header -->
+    <header class="admin-header">
+      <h1 class="admin-header__title">Label Review</h1>
+      <div class="admin-header__controls">
+        <div class="progress-indicator" id="review-progress">
+          <span id="progress-text">0 of 0 reviewed</span>
+        </div>
+        <a href="/admin/label.html" class="button button--ghost">Back to Labeling</a>
+      </div>
+    </header>
+
+    <div class="admin-layout">
+      <!-- Left: Image Display -->
+      <div class="admin-layout__image">
+        <div id="review-image-viewer" class="admin-image-viewer">
+          <div class="admin-image-viewer__loading">
+            <div class="spinner"></div>
+            <p>Loading images to review...</p>
+          </div>
+        </div>
+
+        <!-- Image Info -->
+        <div id="review-image-info" class="image-info">
+          <span class="image-info__item">
+            <strong>ID:</strong> <span id="review-image-id">--</span>
+          </span>
+          <span class="image-info__item">
+            <strong>Current Label:</strong> <span id="review-current-label" class="pill pill--visibility">--</span>
+          </span>
+        </div>
+      </div>
+
+      <!-- Right: Review Controls -->
+      <div class="admin-layout__controls">
+        <div class="control-group">
+          <h2 class="control-group__title">Review Action</h2>
+          <div class="button-grid">
+            <button data-action="review-confirm" class="button button--success button--large">
+              <kbd>C</kbd> Confirm Correct
+            </button>
+            <button data-action="review-change-partial" class="button button--warning button--large">
+              <kbd>P</kbd> Change to Partial
+            </button>
+            <button data-action="review-change-not-out" class="button button--danger button--large">
+              <kbd>N</kbd> Change to Not Out
+            </button>
+            <button data-action="review-skip" class="button button--secondary button--large">
+              <kbd>S</kbd> Skip
+            </button>
+          </div>
+        </div>
+
+        <!-- Filter Controls -->
+        <div class="control-group">
+          <h2 class="control-group__title">Filter</h2>
+          <div class="filter-controls">
+            <label class="checkbox-label">
+              <input type="checkbox" id="filter-out" checked>
+              Show "Out" labels
+            </label>
+            <label class="checkbox-label">
+              <input type="checkbox" id="filter-partial" checked>
+              Show "Partial" labels
+            </label>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- JavaScript -->
+  <script type="module" src="/js/admin/review.js"></script>
+</body>
+</html>
