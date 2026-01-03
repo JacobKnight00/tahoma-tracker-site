@@ -3,49 +3,52 @@
 :root {
   /* Colors - Base */
   --color-white: #ffffff;
-  --color-black: #0a0a0a;
   --color-gray-50: #f9fafb;
   --color-gray-100: #f3f4f6;
   --color-gray-200: #e5e7eb;
   --color-gray-300: #d1d5db;
-  --color-gray-400: #9ca3af;
-  --color-gray-500: #6b7280;
   --color-gray-600: #4b5563;
   --color-gray-700: #374151;
-  --color-gray-800: #1f2937;
   --color-gray-900: #111827;
 
-  /* Colors - Brand (National Park Service inspired) */
-  --color-primary: #56903A; /* NPS light green */
-  --color-primary-dark: #213A1B; /* NPS dark green */
-  --color-primary-light: #BAE5F9; /* NPS light blue */
+  /* Colors - NPS Palette */
+  --color-nps-green-lightest: #ecf3ec;
+  --color-nps-green-light: #86b98e;
+  --color-nps-green: #446443;
+  --color-nps-green-dark: #154c21;
+  --color-nps-green-darker: #19311e;
+
+  --color-nps-brown-light: #f2e4d4;
+  --color-nps-brown: #a86437;
+  --color-nps-brown-dark: #8c471c;
+
+  --color-nps-warm-lightest: #f5f0e6;
+
+  --color-nps-danger: #e52207;
+  --color-nps-info: #0076d6;
+  --color-nps-cool-lightest: #e7f2f5;
+
+  /* Colors - Brand */
+  --color-primary: var(--color-nps-green);
+  --color-primary-dark: var(--color-nps-green-dark);
 
   /* Colors - Semantic */
-  --color-success: #213A1B; /* NPS dark green */
-  --color-success-dark: #213A1B;
-  --color-success-light: #56903A;
-  --color-success-bg: #fceade; /* Off white with a warm beige tint */
+  --color-success: var(--color-nps-green-dark);
+  --color-success-dark: var(--color-nps-green-darker);
+  --color-success-bg: var(--color-nps-green-lightest);
 
-  --color-danger: #dc2626;
-  --color-danger-dark: #b91c1c;
-  
-  --color-danger-light: #f87171;
-  --color-danger-bg: #fee2e2;
+  --color-danger: var(--color-nps-danger);
+  --color-danger-dark: var(--color-nps-danger);
+  --color-danger-bg: var(--color-nps-warm-lightest);
 
-  --color-warning: #ea580c;
-  --color-warning-dark: #c2410c;
-  --color-warning-light: #fb923c;
-  --color-warning-bg: #ffedd5;
+  --color-warning: var(--color-nps-brown);
+  --color-warning-dark: var(--color-nps-brown-dark);
 
-  --color-info: #0891b2;
-  --color-info-dark: #0e7490;
-  --color-info-light: #22d3ee;
-  --color-info-bg: #cffafe;
+  --color-info-dark: var(--color-nps-info);
+  --color-info-bg: var(--color-nps-cool-lightest);
 
   /* Colors - Neutral Semantic */
-  --color-neutral: var(--color-gray-500);
   --color-neutral-dark: var(--color-gray-700);
-  --color-neutral-light: var(--color-gray-300);
   --color-neutral-bg: var(--color-gray-100);
 
   /* Typography */

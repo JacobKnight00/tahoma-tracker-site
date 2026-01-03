@@ -6,7 +6,7 @@ body {
   line-height: var(--line-height-normal);
   color: var(--color-gray-900);
   /* National Park Service inspired gradient - sky to forest */
-  background: linear-gradient(135deg, #83d659 0%, #69ad48 70%, #56903A 100%);
+  background: linear-gradient(135deg, var(--color-nps-green-light) 0%, var(--color-nps-green) 70%, var(--color-nps-green-dark) 100%);
   background-attachment: fixed;
 }
 

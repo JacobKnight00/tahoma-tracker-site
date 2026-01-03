@@ -39,11 +39,11 @@
 }
 
 .status-value__text--positive {
-  color: #213A1B;
+  color: var(--color-success-dark);
 }
 
 .status-value__text--negative {
-  color: var(--color-danger);
+  color: var(--color-nps-brown-dark);
 }
 
 .status-value__text--unknown {
@@ -106,7 +106,7 @@
 }
 
 .metadata {
-  background: #f7e2cf;
+  background: var(--color-nps-brown-light);
   border-radius: var(--radius-lg);
   padding: var(--space-xl);
   box-shadow: var(--shadow-md);
@@ -161,7 +161,7 @@
 }
 
 .correction-details {
-  background: #f7e2cf;
+  background: var(--color-nps-brown-light);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-md);
   overflow: hidden;
