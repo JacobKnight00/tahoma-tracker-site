@@ -19,9 +19,11 @@ export class MetadataDisplay {
     const items = [
       {
         label: 'Confidence',
-        value: data.out_prob !== null && data.out_prob !== undefined
-          ? formatPercent(data.out_prob)
-          : '--',
+        value: (data.visibility_prob !== null && data.visibility_prob !== undefined)
+          ? formatPercent(data.visibility_prob)
+          : (data.out_prob !== null && data.out_prob !== undefined)
+            ? formatPercent(data.out_prob)
+            : '--',
       },
       {
         label: 'Frame State',

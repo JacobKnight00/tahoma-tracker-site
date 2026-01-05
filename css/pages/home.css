@@ -3,7 +3,7 @@
 /* Status Section */
 
 .status-section {
-  margin-bottom: var(--space-3xl);
+  margin-bottom: var(--space-lg);
   animation: fadeInUp 0.6s ease-out;
 }
 
@@ -40,6 +40,10 @@
 
 .status-value__text--positive {
   color: var(--color-success-dark);
+}
+
+.status-value__text--partial {
+  color: var(--color-warning-dark);
 }
 
 .status-value__text--negative {
@@ -156,7 +160,7 @@
 /* Correction Section */
 
 .correction-section {
-  margin-bottom: var(--space-3xl);
+  margin-bottom: var(--space-md);
   animation: fadeInUp 0.6s ease-out 0.3s both;
 }
 

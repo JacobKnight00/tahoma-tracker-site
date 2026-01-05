@@ -41,9 +41,25 @@ export class StatusDisplay {
     let statusText = 'UNKNOWN';
     let statusClass = 'unknown';
 
-    if (data.status === 'ok' && data.out !== null && data.out !== undefined) {
-      statusText = data.out ? 'YES' : 'NO';
-      statusClass = data.out ? 'positive' : 'negative';
+    if (data.status === 'OK') {
+      // New format: visibility enum
+      if (data.visibility !== null && data.visibility !== undefined) {
+        if (data.visibility === 'out') {
+          statusText = 'YES';
+          statusClass = 'positive';
+        } else if (data.visibility === 'partially_out') {
+          statusText = 'PARTIAL';
+          statusClass = 'partial';
+        } else if (data.visibility === 'not_out') {
+          statusText = 'NO';
+          statusClass = 'negative';
+        }
+      }
+      // Backward compatibility: old format with boolean 'out'
+      else if (data.out !== null && data.out !== undefined) {
+        statusText = data.out ? 'YES' : 'NO';
+        statusClass = data.out ? 'positive' : 'negative';
+      }
     }
 
     // Create elements
