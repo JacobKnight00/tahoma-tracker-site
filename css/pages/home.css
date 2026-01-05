@@ -54,6 +54,173 @@
   color: var(--color-white);
 }
 
+/* Back Link */
+
+.back-link {
+  color: var(--color-white);
+  text-decoration: none;
+  font-size: var(--font-size-base);
+  transition: opacity 0.2s ease;
+}
+
+.back-link:hover {
+  opacity: 0.8;
+}
+
+/* Date and Frame Navigation */
+
+.date-navigation {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-md);
+  margin-bottom: var(--space-lg);
+}
+
+.date-picker {
+  padding: var(--space-sm) var(--space-md);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  font-family: var(--font-family-mono);
+  font-size: var(--font-size-base);
+  background: var(--color-white);
+  color: var(--color-text);
+  cursor: pointer;
+}
+
+.nav-btn {
+  padding: var(--space-sm) var(--space-md);
+  background: var(--color-white);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-semibold);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  color: var(--color-text);
+  min-width: 44px;
+}
+
+.nav-btn:hover:not(:disabled) {
+  background: var(--color-gray-100);
+  border-color: var(--color-gray-400);
+}
+
+.nav-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.frame-navigation {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-md);
+  margin-top: var(--space-lg);
+}
+
+.frame-info {
+  font-family: var(--font-family-mono);
+  font-size: var(--font-size-base);
+  color: var(--color-white);
+  text-align: center;
+  min-width: 200px;
+}
+
+.scrubber-container {
+  margin-top: var(--space-lg);
+  max-width: 600px;
+  width: 100%;
+  margin-left: auto;
+  margin-right: auto;
+  padding: 0 var(--space-md);
+  box-sizing: border-box;
+}
+
+.scrubber-track {
+  position: relative;
+  height: 8px;
+  background: rgba(255, 255, 255, 0.4);
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background 0.2s ease;
+  width: 100%;
+}
+
+.scrubber-track:hover {
+  background: rgba(255, 255, 255, 0.5);
+}
+
+.scrubber-progress {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  background: rgba(255, 255, 255, 0.5);
+  border-radius: 4px;
+  pointer-events: none;
+  transition: width 0.1s ease-out;
+}
+
+.scrubber-handle {
+  position: absolute;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 20px;
+  height: 20px;
+  background: var(--color-white);
+  border: 3px solid var(--color-nps-brown);
+  border-radius: 50%;
+  cursor: grab;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+  transition: left 0.1s ease-out;
+}
+
+.scrubber-handle:hover {
+  transform: translate(-50%, -50%) scale(1.1);
+}
+
+.scrubber-handle:active {
+  cursor: grabbing;
+  transform: translate(-50%, -50%) scale(1.15);
+}
+
+.playback-controls {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-md);
+  margin-top: var(--space-md);
+}
+
+.play-btn {
+  padding: var(--space-sm) var(--space-lg);
+  background: var(--color-white);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-semibold);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  color: var(--color-text);
+  min-width: 80px;
+}
+
+.play-btn:hover {
+  background: var(--color-gray-100);
+  border-color: var(--color-gray-400);
+}
+
+.play-btn.playing {
+  background: var(--color-nps-brown);
+  color: var(--color-white);
+  border-color: var(--color-nps-brown-dark);
+}
+
+.play-btn.playing:hover {
+  background: var(--color-nps-brown-dark);
+}
+
 /* Content Section - Image and Metadata */
 
 .content-section {
@@ -80,6 +247,8 @@
   border-radius: var(--radius-xl);
   box-shadow: var(--shadow-lg);
   overflow: hidden;
+  max-width: 600px;
+  margin: 0 auto;
 }
 
 .image-viewer__loading {
@@ -93,6 +262,12 @@
   width: 100%;
   height: auto;
   display: block;
+  opacity: 1;
+  transition: opacity 0.2s ease-in-out;
+}
+
+.image-viewer__img.loading {
+  opacity: 0.3;
 }
 
 .image-viewer__error {
@@ -281,7 +456,8 @@
 
 @media (min-width: 1024px) {
   /* When image is not too large, put metadata next to it */
-  .content-wrapper {
+  /* This only applies to pages WITH .metadata-section */
+  .content-wrapper:has(.metadata-section) {
     flex-direction: row;
     align-items: stretch;
     max-width: var(--content-max-width-desktop);
@@ -304,5 +480,10 @@
   /* Match correction section width to content wrapper */
   .correction-details {
     max-width: var(--content-max-width-desktop);
+  }
+  
+  /* For history page, keep content centered and constrained */
+  .content-wrapper:not(:has(.metadata-section)) {
+    max-width: var(--image-max-width-desktop);
   }
 }

@@ -43,14 +43,20 @@ export function formatTimestamp(isoString, options = {}) {
 
 /**
  * Format a timestamp to just the time portion
- * @param {string} isoString - ISO 8601 timestamp
+ * @param {string|Date} isoStringOrDate - ISO 8601 timestamp or Date object
  * @returns {string} Formatted time (e.g., "2:30 PM")
  */
-export function formatTime(isoString) {
-  return formatTimestamp(isoString, {
+export function formatTime(isoStringOrDate) {
+  if (!isoStringOrDate) {
+    return '--';
+  }
+  
+  const date = isoStringOrDate instanceof Date ? isoStringOrDate : new Date(isoStringOrDate);
+  
+  return new Intl.DateTimeFormat('en-US', {
     hour: 'numeric',
     minute: '2-digit',
-  });
+  }).format(date);
 }
 
 /**
