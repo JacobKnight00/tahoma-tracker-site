@@ -18,6 +18,12 @@ export class MetadataDisplay {
 
     const items = [
       {
+        label: 'Visibility',
+        value: data.visibility !== undefined && data.visibility !== null
+          ? snakeToTitle(String(data.visibility))
+          : '--',
+      },
+      {
         label: 'Confidence',
         value: (data.visibility_prob !== null && data.visibility_prob !== undefined)
           ? formatPercent(data.visibility_prob)
@@ -38,10 +44,6 @@ export class MetadataDisplay {
         value: data.threshold !== null && data.threshold !== undefined
           ? data.threshold.toFixed(2)
           : '--',
-      },
-      {
-        label: 'Captured',
-        value: (data.ts || data.timestamp) ? formatTimestamp(data.ts || data.timestamp) : '--',
       },
     ];
 

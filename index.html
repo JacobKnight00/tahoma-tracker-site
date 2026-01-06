@@ -23,7 +23,7 @@
     <!-- Status Section -->
     <section class="status-section" aria-label="Current visibility status">
       <div class="status-header">
-        <h1 class="page-title">Is Mt. Rainier Out?</h1>
+        <h1 class="page-title"><span id="page-title-tense">Is</span> Mt. Rainier Out?</h1>
         <div id="status-display" class="status-value">
           <div class="status-value__loading">
             <div class="spinner"></div>
@@ -47,6 +47,42 @@
           <div id="metadata-display" class="metadata">
             <!-- Populated by JS -->
           </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Timeline Section -->
+    <section class="timeline-section" aria-label="View historical images">
+      <div class="timeline-compact">
+        <div class="timeline-main">
+          <div class="timeline-captured" id="timeline-captured">
+            <span class="metadata__label">Captured</span>
+            <span class="metadata__value" id="timeline-captured-value">--</span>
+          </div>
+          <div class="timeline-row">
+            <div class="timeline-scrubber-compact">
+              <div id="timeline-scrubber-track" class="timeline-scrubber-track">
+                <div id="timeline-scrubber-progress" class="timeline-scrubber-progress"></div>
+                <div id="timeline-scrubber-handle" class="timeline-scrubber-handle"></div>
+              </div>
+            </div>
+            <button class="timeline-expand-btn" id="timeline-expand-btn" aria-label="Expand timeline controls">▼</button>
+          </div>
+        </div>
+        
+        <div class="timeline-controls-expanded" id="timeline-controls-expanded" style="display: none;">
+          <div class="timeline-controls">
+            <div class="timeline-control-left">
+              <button id="timeline-prev-day" class="timeline-nav-btn" aria-label="Previous day">←</button>
+              <div id="timeline-date-display" class="timeline-date">Today</div>
+              <button id="timeline-next-day" class="timeline-nav-btn" aria-label="Next day">→</button>
+              <button id="timeline-latest-btn" class="timeline-latest-btn" aria-label="Jump to latest">Jump to Latest</button>
+            </div>
+            <div class="timeline-control-right">
+              <button id="timeline-play-btn" class="timeline-play-btn" aria-label="Play/Pause">▶ Play</button>
+            </div>
+          </div>
+          <div id="timeline-time-display" class="timeline-time">--</div>
         </div>
       </div>
     </section>

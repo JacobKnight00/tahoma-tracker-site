@@ -6,6 +6,7 @@ import { StatusDisplay } from './components/StatusDisplay.js';
 import { ImageViewer } from './components/ImageViewer.js';
 import { MetadataDisplay } from './components/MetadataDisplay.js';
 import { LabelForm } from './components/LabelForm.js';
+import { TimelineViewer } from './components/TimelineViewer.js';
 import { formatRelativeTime } from './utils/format.js';
 import { config } from '../config/config.js';
 
@@ -14,9 +15,14 @@ let statusDisplay;
 let imageViewer;
 let metadataDisplay;
 let labelForm;
+let timelineViewer;
 
 // Auto-refresh interval ID
 let refreshIntervalId;
+
+// Track current state
+let latestData = null;
+let isViewingLatest = true;
 
 /**
  * Initialize the app
@@ -33,12 +39,19 @@ async function init() {
   statusDisplay = new StatusDisplay(statusContainer);
   imageViewer = new ImageViewer(imageContainer);
   metadataDisplay = new MetadataDisplay(metadataContainer);
+  
+  // Create timeline viewer
+  timelineViewer = new TimelineViewer({
+    imageViewer,
+    metadataDisplay,
+    onImageChange: handleTimelineImageChange
+  });
 
   // Show loading states
   statusDisplay.renderLoading();
   imageViewer.renderLoading();
 
-  // Load initial data
+  // Load initial data first
   await loadLatestData();
 
   // Set up auto-refresh
@@ -56,19 +69,48 @@ async function init() {
 }
 
 /**
+ * Update the page title tense based on whether viewing latest
+ */
+function updatePageTitleTense() {
+  const titleTense = document.getElementById('page-title-tense');
+  if (titleTense) {
+    titleTense.textContent = isViewingLatest ? 'Is' : 'Was';
+  }
+}
+
+/**
+ * Handle timeline image change
+ */
+function handleTimelineImageChange(data, timestamp) {
+  // If timestamp is null, user returned to latest
+  if (!timestamp) {
+    isViewingLatest = true;
+    statusDisplay.render(latestData);
+  } else {
+    isViewingLatest = false;
+    statusDisplay.render(data);
+  }
+  updatePageTitleTense();
+}
+
+/**
  * Load latest data from API
  */
 async function loadLatestData() {
   try {
     const data = await fetchLatest();
 
-    // Store globally for other functions
+    // Store globally
+    latestData = data;
     window.latestData = data;
 
-    // Render components
-    statusDisplay.render(data);
-    imageViewer.render(data);
-    metadataDisplay.render(data);
+    // Only update UI if we're still viewing the latest
+    if (isViewingLatest) {
+      // Render components
+      statusDisplay.render(data);
+      imageViewer.render(data);
+      metadataDisplay.render(data);
+    }
 
     // Initialize label form if not already done
     const timestamp = data.ts || data.timestamp;
@@ -85,12 +127,34 @@ async function loadLatestData() {
     if (data.updated_at) {
       lastUpdatedSpan.textContent = formatRelativeTime(data.updated_at);
     }
+    
+    updatePageTitleTense();
+    
+    // Initialize timeline on first load (loads frames but doesn't change the image)
+    if (timelineViewer && timelineViewer.frames.length === 0) {
+      timelineViewer.initialize();
+    }
   } catch (error) {
     console.error('Failed to load latest data:', error);
     statusDisplay.renderError('Failed to load data. Please refresh the page.');
     imageViewer.renderError('Failed to load image.');
   }
 }
+
+// Handle timeline close event (from Jump to Latest button)
+window.addEventListener('timelineClose', () => {
+  if (timelineViewer) {
+    // Reset to latest when closing timeline
+    isViewingLatest = true;
+    if (latestData) {
+      statusDisplay.render(latestData);
+      imageViewer.render(latestData);
+      metadataDisplay.render(latestData);
+      timelineViewer.resetToLatest(latestData);
+    }
+    updatePageTitleTense();
+  }
+});
 
 // Start the app when DOM is ready
 if (document.readyState === 'loading') {
