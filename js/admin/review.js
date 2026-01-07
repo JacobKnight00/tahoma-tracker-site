@@ -124,7 +124,7 @@ async function changeToPartial() {
     await submitLabel({
       ts: currentImage.ts,
       frame_state: 'good',
-      visibility: 'partial',
+      visibility: 'partially_out',
       updated_by: 'admin',
     });
 

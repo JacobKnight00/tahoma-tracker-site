@@ -224,7 +224,7 @@
 /* Content Section - Image and Metadata */
 
 .content-section {
-  margin-bottom: var(--space-3xl);
+  margin-bottom: var(--space-xl);
   animation: fadeInUp 0.6s ease-out 0.1s both;
 }
 
@@ -338,7 +338,7 @@
 /* Timeline Section */
 
 .timeline-section {
-  margin-bottom: var(--space-lg);
+  margin-bottom: var(--space-3xl);
   animation: fadeInUp 0.6s ease-out 0.2s both;
 }
 
@@ -373,6 +373,17 @@
   gap: var(--space-xs);
   margin-bottom: var(--space-sm);
   width: 100%;
+}
+
+.timeline-captured .metadata__label {
+  font-size: var(--font-size-sm);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.timeline-captured .metadata__value {
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-regular);
 }
 
 .timeline-expand-btn {

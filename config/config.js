@@ -22,6 +22,8 @@ export const config = {
   // For local dev, use placeholder
   // For production, use CloudFront or S3 URL
   imageBaseUrl: 'https://deaf937kouf5m.cloudfront.net',
+  // Versioned analysis path segment (used for timeline/history fetches)
+  analysisVersion: 'v1',
 
   // Date range for historical data
   historicalDataStart: '2025-01-01',

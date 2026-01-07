@@ -69,7 +69,7 @@ async function init() {
 }
 
 /**
- * Update the page title tense based on whether viewing latest
+ * Update the page title tense and status based on current view
  */
 function updatePageTitleTense() {
   const titleTense = document.getElementById('page-title-tense');
@@ -126,6 +126,11 @@ async function loadLatestData() {
     const lastUpdatedSpan = document.getElementById('last-updated');
     if (data.updated_at) {
       lastUpdatedSpan.textContent = formatRelativeTime(data.updated_at);
+    }
+
+    // Keep timeline captured display in sync when viewing latest
+    if (isViewingLatest && timelineViewer && timestamp) {
+      timelineViewer.updateCapturedDisplay(timestamp);
     }
     
     updatePageTitleTense();

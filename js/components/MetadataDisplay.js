@@ -1,7 +1,7 @@
 // Metadata Display Component
-// Shows frame state, model version, threshold, etc.
+// Shows frame state, visibility, confidences, and model version
 
-import { formatTimestamp, formatPercent, snakeToTitle } from '../utils/format.js';
+import { formatPercent, snakeToTitle } from '../utils/format.js';
 import { createElement, clearElement } from '../utils/dom.js';
 
 export class MetadataDisplay {
@@ -16,34 +16,36 @@ export class MetadataDisplay {
   render(data) {
     clearElement(this.container);
 
+    const isFrameGood = data.frame_state === 'good';
+    const visibilityValue = isFrameGood ? data.visibility : null;
+    const visibilityConfidence = isFrameGood ? data.visibility_prob : null;
+
     const items = [
-      {
-        label: 'Visibility',
-        value: data.visibility !== undefined && data.visibility !== null
-          ? snakeToTitle(String(data.visibility))
-          : '--',
-      },
-      {
-        label: 'Confidence',
-        value: (data.visibility_prob !== null && data.visibility_prob !== undefined)
-          ? formatPercent(data.visibility_prob)
-          : (data.out_prob !== null && data.out_prob !== undefined)
-            ? formatPercent(data.out_prob)
-            : '--',
-      },
       {
         label: 'Frame State',
         value: data.frame_state ? snakeToTitle(data.frame_state) : '--',
       },
       {
-        label: 'Model Version',
-        value: data.model_version || '--',
+        label: 'Frame Confidence',
+        value: data.frame_state_probability !== null && data.frame_state_probability !== undefined
+          ? formatPercent(data.frame_state_probability, 1)
+          : '--',
       },
       {
-        label: 'Threshold',
-        value: data.threshold !== null && data.threshold !== undefined
-          ? data.threshold.toFixed(2)
+        label: 'Visibility',
+        value: visibilityValue !== null && visibilityValue !== undefined
+          ? snakeToTitle(String(visibilityValue))
           : '--',
+      },
+      {
+        label: 'Visibility Confidence',
+        value: visibilityConfidence !== null && visibilityConfidence !== undefined
+          ? formatPercent(visibilityConfidence, 1)
+          : '--',
+      },
+      {
+        label: 'Model Version',
+        value: data.model_version || '--',
       },
     ];
 

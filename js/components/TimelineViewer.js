@@ -12,6 +12,10 @@ export class TimelineViewer {
     this.onImageChange = options.onImageChange;
     
     this.currentDate = new Date();
+    this.minDate = config.historicalDataStart ? new Date(config.historicalDataStart) : null;
+    if (this.minDate) {
+      this.minDate.setHours(0, 0, 0, 0);
+    }
     this.frames = [];
     this.currentFrameIndex = 0;
     this.isLoading = false;
@@ -69,6 +73,13 @@ export class TimelineViewer {
       this.currentFrameIndex = Math.max(0, Math.min(this.frames.length - 1, index));
       this.updateView();
     };
+
+    const extractClientX = (event) => {
+      if (event.touches && event.touches.length > 0) {
+        return event.touches[0].clientX;
+      }
+      return event.clientX;
+    };
     
     this.scrubberTrack.addEventListener('click', (e) => {
       if (e.target === this.scrubberHandle) return;
@@ -86,6 +97,34 @@ export class TimelineViewer {
     });
     
     document.addEventListener('mouseup', () => {
+      isDragging = false;
+    });
+
+    // Touch support
+    this.scrubberTrack.addEventListener('touchstart', (e) => {
+      const x = extractClientX(e);
+      if (x !== undefined) {
+        updatePosition(x);
+      }
+      isDragging = true;
+      e.preventDefault();
+    }, { passive: false });
+
+    this.scrubberHandle.addEventListener('touchstart', (e) => {
+      isDragging = true;
+      e.preventDefault();
+    }, { passive: false });
+
+    document.addEventListener('touchmove', (e) => {
+      if (!isDragging) return;
+      const x = extractClientX(e);
+      if (x !== undefined) {
+        updatePosition(x);
+      }
+      e.preventDefault();
+    }, { passive: false });
+
+    document.addEventListener('touchend', () => {
       isDragging = false;
     });
   }
@@ -277,9 +316,8 @@ export class TimelineViewer {
       }
     } finally {
       this.isLoading = false;
-      this.updateNavigationButtons();
-      this.updateLatestButton();
       this.setNavigationDisabled(false);
+      this.updateNavigationButtons();
     }
   }
 
@@ -316,14 +354,8 @@ export class TimelineViewer {
   }
   
   updateNavigationButtons() {
-    const now = new Date();
-    let maxDate = new Date(now);
-    maxDate.setHours(0, 0, 0, 0);
-    
-    if (now.getHours() < 4) {
-      maxDate.setDate(maxDate.getDate() - 1);
-    }
-    
+    const maxDate = this.getMaxDate();
+    const minDate = this.getMinDate();
     const currentDateMidnight = new Date(this.currentDate);
     currentDateMidnight.setHours(0, 0, 0, 0);
     
@@ -331,7 +363,7 @@ export class TimelineViewer {
       this.nextDayBtn.disabled = this.isLoading || currentDateMidnight >= maxDate;
     }
     if (this.prevDayBtn) {
-      this.prevDayBtn.disabled = this.isLoading;
+      this.prevDayBtn.disabled = this.isLoading || (minDate && currentDateMidnight <= minDate);
     }
     if (this.playBtn) {
       this.playBtn.disabled = this.isLoading;
@@ -356,9 +388,14 @@ export class TimelineViewer {
     const atLatest = this.isAtLatestFrame();
     this.latestBtn.disabled = this.isLoading || atLatest;
   }
-  
+
   prevDay() {
     if (this.isLoading) return;
+    const minDate = this.getMinDate();
+    const currentMidnight = new Date(this.currentDate);
+    currentMidnight.setHours(0, 0, 0, 0);
+    if (minDate && currentMidnight <= minDate) return;
+
     const targetTime = this.frames[this.currentFrameIndex] || null;
     this.currentDate.setDate(this.currentDate.getDate() - 1);
     this.loadDate(targetTime ? this.shiftDateToCurrent(targetTime) : null, { render: true });
@@ -366,13 +403,7 @@ export class TimelineViewer {
   
   nextDay() {
     if (this.isLoading) return;
-    const now = new Date();
-    let maxDate = new Date(now);
-    maxDate.setHours(0, 0, 0, 0);
-    
-    if (now.getHours() < 4) {
-      maxDate.setDate(maxDate.getDate() - 1);
-    }
+    const maxDate = this.getMaxDate();
     
     const nextDate = new Date(this.currentDate);
     nextDate.setDate(nextDate.getDate() + 1);
@@ -511,5 +542,21 @@ export class TimelineViewer {
       return;
     }
     this.capturedValueEl.textContent = formatTimestamp(dateObj);
+  }
+
+  getMaxDate() {
+    const now = new Date();
+    let maxDate = new Date(now);
+    maxDate.setHours(0, 0, 0, 0);
+
+    if (now.getHours() < 4) {
+      maxDate.setDate(maxDate.getDate() - 1);
+    }
+
+    return maxDate;
+  }
+
+  getMinDate() {
+    return this.minDate;
   }
 }

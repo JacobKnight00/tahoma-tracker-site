@@ -34,7 +34,7 @@ export class LabelForm {
       createElement('label', { class: 'correction-form__label' }, 'Visibility (if frame is good):'),
       createElement('div', { class: 'correction-form__buttons' }, [
         this.createButton('out', 'Out', 'visibility', true),
-        this.createButton('partial', 'Partial', 'visibility', true),
+        this.createButton('partially_out', 'Partial', 'visibility', true),
         this.createButton('not_out', 'Not Out', 'visibility', true),
       ]),
     ]);

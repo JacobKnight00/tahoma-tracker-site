@@ -3,6 +3,147 @@
 
 import { config, getAdminToken } from '../../config/config.js';
 
+// Track the current analysis path version (default to config)
+const DEFAULT_ANALYSIS_VERSION = config.analysisVersion || 'v1';
+let cachedAnalysisVersion = DEFAULT_ANALYSIS_VERSION;
+
+const IMAGE_ID_REGEX = /^(\d{4})\/(\d{2})\/(\d{2})\/(\d{2})(\d{2})$/;
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+function updateCachedAnalysisVersionFromKey(key) {
+  const match = key?.match(/analysis\/([^/]+)\//);
+  if (match?.[1]) {
+    cachedAnalysisVersion = match[1];
+  }
+}
+
+function getDateParts(dateInput) {
+  const date = dateInput instanceof Date ? dateInput : new Date(dateInput);
+  if (Number.isNaN(date.getTime())) return null;
+
+  return {
+    year: date.getFullYear(),
+    month: String(date.getMonth() + 1).padStart(2, '0'),
+    day: String(date.getDate()).padStart(2, '0'),
+    hours: String(date.getHours()).padStart(2, '0'),
+    minutes: String(date.getMinutes()).padStart(2, '0'),
+  };
+}
+
+function buildImageId(input) {
+  if (typeof input === 'string') {
+    const cleaned = input.replace('.json', '').replace('.jpg', '');
+    if (IMAGE_ID_REGEX.test(cleaned)) {
+      return cleaned;
+    }
+  }
+
+  const parts = getDateParts(input);
+  if (!parts) {
+    throw new Error('Invalid timestamp provided to buildImageId');
+  }
+
+  return `${parts.year}/${parts.month}/${parts.day}/${parts.hours}${parts.minutes}`;
+}
+
+function parseImageIdToDate(imageId) {
+  const match = IMAGE_ID_REGEX.exec(imageId);
+  if (!match) return null;
+
+  const [, year, month, day, hours, minutes] = match.map(Number);
+  // Use local time to stay consistent with original timeline behavior
+  return new Date(year, month - 1, day, hours, minutes, 0, 0);
+}
+
+function getTopLabel(probabilities = {}) {
+  let topLabel = null;
+  let topValue = Number.NEGATIVE_INFINITY;
+
+  for (const [label, value] of Object.entries(probabilities)) {
+    if (value > topValue) {
+      topValue = value;
+      topLabel = label;
+    }
+  }
+
+  return topLabel;
+}
+
+function normalizeData(raw = {}) {
+  const data = { ...raw };
+
+  if (data.analysis_s3_key) {
+    updateCachedAnalysisVersionFromKey(data.analysis_s3_key);
+  }
+
+  let imageId = data.image_id;
+  if (!imageId) {
+    const parts = getDateParts(data.ts || data.timestamp);
+    if (parts) {
+      imageId = `${parts.year}/${parts.month}/${parts.day}/${parts.hours}${parts.minutes}`;
+    }
+  }
+
+  let ts = data.ts || data.timestamp;
+  if (!ts && imageId) {
+    const dateFromImageId = parseImageIdToDate(imageId);
+    if (dateFromImageId) {
+      ts = dateFromImageId.toISOString();
+    }
+  }
+
+  const frameProbs = data.frame_state_probabilities || {};
+  const visibilityProbs = data.visibility_probabilities || {};
+
+  let frameState = data.frame_state;
+  let frameStateProbability = data.frame_state_probability;
+
+  if (!frameState && Object.keys(frameProbs).length > 0) {
+    frameState = getTopLabel(frameProbs);
+  }
+  if (frameState && frameProbs[frameState] != null) {
+    frameStateProbability = frameProbs[frameState];
+  }
+
+  let visibility = data.visibility;
+  if (!visibility && Object.keys(visibilityProbs).length > 0 && (!frameState || frameState === 'good')) {
+    visibility = getTopLabel(visibilityProbs);
+  }
+
+  let visibilityProb = data.visibility_prob ?? null;
+  if (visibility && visibilityProbs[visibility] != null) {
+    visibilityProb = visibilityProbs[visibility];
+  }
+
+  const modelVersion =
+    data.model_version ||
+    data.visibility_model_version ||
+    data.frame_state_model_version ||
+    null;
+
+  return {
+    ...data,
+    status: typeof data.status === 'string' ? data.status.toUpperCase() : (data.status || 'OK'),
+    image_id: imageId || null,
+    ts: ts || null,
+    timestamp: ts || data.timestamp || null,
+    frame_state: frameState || null,
+    frame_state_probability: frameStateProbability ?? null,
+    frame_state_probabilities: frameProbs,
+    visibility: visibility ?? null,
+    visibility_prob: visibilityProb ?? null,
+    visibility_probabilities: visibilityProbs,
+    model_version: modelVersion,
+    analysis_version: cachedAnalysisVersion,
+    analysis_s3_key: data.analysis_s3_key || (imageId ? `analysis/${cachedAnalysisVersion}/${imageId}.json` : null),
+    cropped_s3_key: data.cropped_s3_key || (imageId ? `needle-cam/cropped-images/${imageId}.jpg` : null),
+    pano_s3_key: data.pano_s3_key || (imageId ? `needle-cam/panos/${imageId}.jpg` : null),
+  };
+}
+
 /**
  * Fetch the latest status and image data
  * @returns {Promise<Object>} Latest data
@@ -16,7 +157,8 @@ export async function fetchLatest() {
     throw new Error(`Failed to fetch latest data: ${response.statusText}`);
   }
 
-  return response.json();
+  const raw = await response.json();
+  return normalizeData(raw);
 }
 
 /**
@@ -97,14 +239,9 @@ export async function fetchLabels(startDate, endDate) {
  * @returns {Promise<Object>} Analysis data
  */
 export async function fetchAnalysis(ts) {
-  const date = new Date(ts);
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-  const hours = String(date.getHours()).padStart(2, '0');
-  const minutes = String(date.getMinutes()).padStart(2, '0');
-
-  const path = `analysis/${year}/${month}/${day}/${hours}${minutes}.json`;
+  const imageId = buildImageId(ts);
+  const version = cachedAnalysisVersion || DEFAULT_ANALYSIS_VERSION;
+  const path = `analysis/${version}/${imageId}.json`;
   const url = new URL(path, config.imageBaseUrl);
 
   const response = await fetch(url.toString(), {
@@ -115,7 +252,12 @@ export async function fetchAnalysis(ts) {
     throw new Error(`Failed to fetch analysis: ${response.statusText}`);
   }
 
-  return response.json();
+  const raw = await response.json();
+  return normalizeData({
+    ...raw,
+    image_id: raw.image_id || imageId,
+    analysis_s3_key: raw.analysis_s3_key || path,
+  });
 }
 
 /**
@@ -124,25 +266,38 @@ export async function fetchAnalysis(ts) {
  * @returns {string} Image URL
  */
 export function getImageUrl(keyOrTimestamp) {
+  if (!keyOrTimestamp) {
+    throw new Error('No key or timestamp provided for image URL');
+  }
+
+  const value = keyOrTimestamp instanceof Date ? keyOrTimestamp.toISOString() : String(keyOrTimestamp);
+
   // If it starts with http, it's already a full URL
-  if (keyOrTimestamp.startsWith('http')) {
-    return keyOrTimestamp;
+  if (value.startsWith('http')) {
+    return value;
+  }
+
+  // If it looks like a direct S3 key or already has an extension
+  const isS3Key = value.includes('needle-cam') || value.endsWith('.jpg') || value.startsWith('analysis/');
+  if (isS3Key) {
+    return new URL(value, config.imageBaseUrl).toString();
+  }
+
+  // If it matches an image_id (YYYY/MM/DD/HHMM), build cropped path
+  const potentialId = value.replace('.json', '').replace('.jpg', '');
+  if (IMAGE_ID_REGEX.test(potentialId)) {
+    const path = `needle-cam/cropped-images/${potentialId}.jpg`;
+    return new URL(path, config.imageBaseUrl).toString();
   }
 
   // If it contains slashes, assume it's an S3 key
-  if (keyOrTimestamp.includes('/')) {
-    return new URL(keyOrTimestamp, config.imageBaseUrl).toString();
+  if (value.includes('/')) {
+    return new URL(value, config.imageBaseUrl).toString();
   }
 
   // Otherwise, assume it's a timestamp - construct the path
-  const date = new Date(keyOrTimestamp);
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-  const hours = String(date.getHours()).padStart(2, '0');
-  const minutes = String(date.getMinutes()).padStart(2, '0');
-
-  const path = `needle-cam/cropped-images/${year}/${month}/${day}/${hours}${minutes}.jpg`;
+  const imageId = buildImageId(value);
+  const path = `needle-cam/cropped-images/${imageId}.jpg`;
   return new URL(path, config.imageBaseUrl).toString();
 }
 

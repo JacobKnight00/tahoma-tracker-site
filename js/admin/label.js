@@ -65,7 +65,7 @@ function registerKeyboardShortcuts() {
 
   // Visibility (only works if frame=good)
   keyboard.register('o', () => setVisibility('out'));
-  keyboard.register('p', () => setVisibility('partial'));
+  keyboard.register('p', () => setVisibility('partially_out'));
   keyboard.register('n', () => setVisibility('not_out'));
 
   // Navigation

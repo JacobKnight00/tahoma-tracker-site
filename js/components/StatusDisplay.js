@@ -1,7 +1,6 @@
 // Status Display Component
 // Renders the main "YES/NO/UNKNOWN" status card
 
-import { formatPercent } from '../utils/format.js';
 import { createElement, clearElement } from '../utils/dom.js';
 
 export class StatusDisplay {
@@ -38,27 +37,23 @@ export class StatusDisplay {
     clearElement(this.container);
 
     // Determine status
-    let statusText = 'UNKNOWN';
-    let statusClass = 'unknown';
+    let statusText = 'NO';
+    let statusClass = 'negative';
 
-    if (data.status === 'OK') {
-      // New format: visibility enum
-      if (data.visibility !== null && data.visibility !== undefined) {
-        if (data.visibility === 'out') {
-          statusText = 'YES';
-          statusClass = 'positive';
-        } else if (data.visibility === 'partially_out') {
-          statusText = 'PARTIAL';
-          statusClass = 'partial';
-        } else if (data.visibility === 'not_out') {
-          statusText = 'NO';
-          statusClass = 'negative';
-        }
-      }
-      // Backward compatibility: old format with boolean 'out'
-      else if (data.out !== null && data.out !== undefined) {
-        statusText = data.out ? 'YES' : 'NO';
-        statusClass = data.out ? 'positive' : 'negative';
+    const frameState = data.frame_state;
+    const isFrameGood = frameState === 'good';
+
+    // Only show visibility when frame is good and a prediction exists
+    if (isFrameGood && data.visibility !== null && data.visibility !== undefined) {
+      if (data.visibility === 'out') {
+        statusText = 'YES';
+        statusClass = 'positive';
+      } else if (data.visibility === 'partially_out') {
+        statusText = 'PARTIAL';
+        statusClass = 'partial';
+      } else if (data.visibility === 'not_out') {
+        statusText = 'NO';
+        statusClass = 'negative';
       }
     }
 
@@ -67,7 +62,7 @@ export class StatusDisplay {
       'span',
       {
         class: `status-value__text status-value__text--${statusClass}`,
-        'aria-label': `Mt. Rainier is ${statusText.toLowerCase()}`,
+        'aria-label': `The mountain is ${statusText.toLowerCase()}`,
       },
       statusText
     );
