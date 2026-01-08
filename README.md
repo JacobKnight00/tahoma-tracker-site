@@ -74,22 +74,23 @@ tahomasite/
    cd ~/Documents/projects/mtrainier/tahomasite
    ```
 
-2. **Start a local server**:
+2. **Start a local server (use ports 8080–8090 for API access)**:
    ```bash
-   python3 -m http.server 8000
+   # Port 8080 is allowed for CORS against the label API
+   python3 -m http.server 8080
    ```
 
-   Or use VS Code's Live Server extension.
+   Or use VS Code's Live Server extension configured to serve on a port between `8080` and `8090`. Other ports (like 8000) will load the site but the label submission API will be blocked by CORS.
 
 3. **Open in browser**:
    ```
-   http://localhost:8000
+   http://localhost:8080
    ```
 
 4. **Test pages**:
-   - Home page: `http://localhost:8000/`
-   - Admin labeling: `http://localhost:8000/admin/label.html?token=test`
-   - Admin review: `http://localhost:8000/admin/review.html`
+   - Home page: `http://localhost:8080/`
+   - Admin labeling: `http://localhost:8080/admin/label.html?token=test`
+   - Admin review: `http://localhost:8080/admin/review.html`
 
 ### Local Development Notes
 
@@ -97,6 +98,7 @@ tahomasite/
 - Images point to local placeholder
 - Admin pages show placeholder UI (backend API not yet connected)
 - To connect to production backend, update URLs in `config/config.js`
+- **Local API note**: The label submission API CORS allowlist only includes `http://localhost:8080`–`http://localhost:8090`. Use one of these ports when running a local server or the browser will block the API response.
 
 ## Configuration
 

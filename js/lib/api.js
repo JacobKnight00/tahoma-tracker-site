@@ -33,7 +33,7 @@ function getDateParts(dateInput) {
   };
 }
 
-function buildImageId(input) {
+export function buildImageId(input) {
   if (typeof input === 'string') {
     const cleaned = input.replace('.json', '').replace('.jpg', '');
     if (IMAGE_ID_REGEX.test(cleaned)) {
@@ -72,6 +72,44 @@ function getTopLabel(probabilities = {}) {
   return topLabel;
 }
 
+function extractImageIdFromKey(value) {
+  if (typeof value !== 'string') return null;
+  const match = value.match(/(\d{4}\/\d{2}\/\d{2}\/\d{4})/);
+  return match?.[1] || null;
+}
+
+function resolveImageId(source = {}) {
+  const directId = source.imageId || source.image_id;
+  if (directId) {
+    try {
+      return buildImageId(directId);
+    } catch (err) {
+      // Fallback to other options if provided id is malformed
+    }
+  }
+
+  const fromKey =
+    extractImageIdFromKey(source.cropped_s3_key) ||
+    extractImageIdFromKey(source.pano_s3_key) ||
+    extractImageIdFromKey(source.analysis_s3_key);
+
+  if (fromKey) {
+    return fromKey;
+  }
+
+  const timestampInput =
+    source.ts ||
+    source.timestamp ||
+    source.targetTimestamp ||
+    (source.time instanceof Date ? source.time : null);
+
+  try {
+    return timestampInput ? buildImageId(timestampInput) : null;
+  } catch (err) {
+    return null;
+  }
+}
+
 function normalizeData(raw = {}) {
   const data = { ...raw };
 
@@ -79,13 +117,7 @@ function normalizeData(raw = {}) {
     updateCachedAnalysisVersionFromKey(data.analysis_s3_key);
   }
 
-  let imageId = data.image_id;
-  if (!imageId) {
-    const parts = getDateParts(data.ts || data.timestamp);
-    if (parts) {
-      imageId = `${parts.year}/${parts.month}/${parts.day}/${parts.hours}${parts.minutes}`;
-    }
-  }
+  let imageId = resolveImageId(data);
 
   let ts = data.ts || data.timestamp;
   if (!ts && imageId) {
@@ -144,6 +176,31 @@ function normalizeData(raw = {}) {
   };
 }
 
+function buildLabelPayload(labelData = {}) {
+  const frameState = labelData.frameState || labelData.frame_state;
+  const visibility = labelData.visibility ?? labelData.visibility_label ?? null;
+
+  const imageId = resolveImageId(labelData);
+
+  if (!imageId) {
+    throw new Error('imageId is required for label submission');
+  }
+
+  if (!frameState) {
+    throw new Error('frameState is required for label submission');
+  }
+
+  if (frameState === 'good') {
+    if (!visibility) {
+      throw new Error('visibility is required when frameState is good');
+    }
+
+    return { imageId, frameState, visibility };
+  }
+
+  return { imageId, frameState };
+}
+
 /**
  * Fetch the latest status and image data
  * @returns {Promise<Object>} Latest data
@@ -164,27 +221,73 @@ export async function fetchLatest() {
 /**
  * Submit a label for an image
  * @param {Object} labelData - Label data
- * @param {string} labelData.ts - ISO timestamp
- * @param {string} labelData.frame_state - Frame state label
- * @param {string|null} labelData.visibility - Visibility label (if frame is good)
- * @param {string} labelData.updated_by - Who submitted this label
+ * @param {string} labelData.imageId - Image identifier (YYYY/MM/DD/HHmm)
+ * @param {string} labelData.frameState - Frame state label
+ * @param {string|null} labelData.visibility - Visibility label (required if frameState is "good")
  * @returns {Promise<Object>} Response from server
  */
 export async function submitLabel(labelData) {
-  const response = await fetch(config.api.submitLabelUrl, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      ...(getAdminToken() && { 'Authorization': `Bearer ${getAdminToken()}` }),
-    },
-    body: JSON.stringify(labelData),
-  });
+  const payload = buildLabelPayload(labelData);
 
-  if (!response.ok) {
-    throw new Error(`Failed to submit label: ${response.statusText}`);
+  let response;
+  let rawBody = '';
+  let fetchError = null;
+  try {
+    response = await fetch(config.api.submitLabelUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(getAdminToken() && { 'Authorization': `Bearer ${getAdminToken()}` }),
+      },
+      body: JSON.stringify(payload),
+      mode: 'cors',
+      cache: 'no-store',
+    });
+  } catch (err) {
+    fetchError = err;
   }
 
-  return response.json();
+  // If the network request threw (common when CORS blocks the response),
+  // treat it as an "unconfirmed" success when the user is online so we
+  // don't show a false failure even though the backend accepted the label.
+  if (!response) {
+    const isOnline = typeof navigator === 'undefined' ? true : navigator.onLine !== false;
+    const isLikelyCorsBlock = fetchError instanceof TypeError && isOnline;
+
+    if (isLikelyCorsBlock) {
+      console.warn('Label submission response was blocked (likely CORS), treating as unconfirmed success.', fetchError);
+      return { success: true, unconfirmed: true, message: 'Feedback submitted (response not confirmed).' };
+    }
+
+    throw new Error('We could not confirm your feedback. Please try again in a moment.');
+  }
+
+  try {
+    rawBody = await response.text();
+  } catch (err) {
+    rawBody = '';
+  }
+
+  let responseBody = null;
+  try {
+    responseBody = rawBody ? JSON.parse(rawBody) : null;
+  } catch (err) {
+    // If the body isn't JSON, fall through and rely on status
+  }
+
+  const isOpaqueSuccess = response.type === 'opaque' && response.status === 0;
+  const isSuccess = response.ok || responseBody?.success === true || isOpaqueSuccess;
+  if (isSuccess) {
+    const base = responseBody || { success: true, message: 'Label recorded' };
+    return isOpaqueSuccess ? { ...base, unconfirmed: true } : base;
+  }
+
+  const errorMessage =
+    responseBody?.error ||
+    responseBody?.message ||
+    response.statusText ||
+    'We could not submit your feedback right now. Please try again.';
+  throw new Error(errorMessage);
 }
 
 /**

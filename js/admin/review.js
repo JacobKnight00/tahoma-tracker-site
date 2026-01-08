@@ -1,7 +1,7 @@
 // Admin Review Page Entry Point
 // Review and correct "out" and "partial" labels
 
-import { submitLabel, fetchLabels } from '../lib/api.js';
+import { submitLabel, buildImageId } from '../lib/api.js';
 import { ImageViewer } from '../components/ImageViewer.js';
 import { createKeyboardShortcuts } from '../utils/keyboard.js';
 
@@ -121,11 +121,15 @@ async function changeToPartial() {
   if (!currentImage) return;
 
   try {
+    const imageId = currentImage.image_id || (currentImage.ts ? buildImageId(currentImage.ts) : null);
+    if (!imageId) {
+      throw new Error('Missing image id for current image.');
+    }
+
     await submitLabel({
-      ts: currentImage.ts,
-      frame_state: 'good',
+      imageId,
+      frameState: 'good',
       visibility: 'partially_out',
-      updated_by: 'admin',
     });
 
     console.log('Changed to partial');
@@ -143,11 +147,15 @@ async function changeToNotOut() {
   if (!currentImage) return;
 
   try {
+    const imageId = currentImage.image_id || (currentImage.ts ? buildImageId(currentImage.ts) : null);
+    if (!imageId) {
+      throw new Error('Missing image id for current image.');
+    }
+
     await submitLabel({
-      ts: currentImage.ts,
-      frame_state: 'good',
+      imageId,
+      frameState: 'good',
       visibility: 'not_out',
-      updated_by: 'admin',
     });
 
     console.log('Changed to not_out');

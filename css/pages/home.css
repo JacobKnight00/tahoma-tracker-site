@@ -675,6 +675,16 @@
   text-align: center;
 }
 
+.correction-form__message--success {
+  background: var(--color-success-bg);
+  color: var(--color-success-dark);
+}
+
+.correction-form__message--error {
+  background: var(--color-danger-bg);
+  color: var(--color-danger-dark);
+}
+
 /* Footer */
 
 .footer {

@@ -1,9 +1,9 @@
 // Admin Labeling Page Entry Point
 // Keyboard-driven rapid labeling interface
 
-import { submitLabel, getImageUrl } from '../lib/api.js';
+import { submitLabel, buildImageId } from '../lib/api.js';
 import { ImageViewer } from '../components/ImageViewer.js';
-import { formatTime, snakeToTitle } from '../utils/format.js';
+import { snakeToTitle } from '../utils/format.js';
 import { createKeyboardShortcuts } from '../utils/keyboard.js';
 
 // State
@@ -165,12 +165,20 @@ async function saveLabel() {
     return;
   }
 
+  const imageId = buildImageId(currentTimestamp);
+  if (!imageId) {
+    console.warn('No imageId available for label submission');
+    return;
+  }
+
+  const frameState = currentLabels.frame_state;
+  const visibility = frameState === 'good' ? currentLabels.visibility : null;
+
   try {
     await submitLabel({
-      ts: currentTimestamp,
-      frame_state: currentLabels.frame_state,
-      visibility: currentLabels.visibility,
-      updated_by: 'admin',
+      imageId,
+      frameState,
+      visibility,
     });
 
     console.log('Label saved:', currentLabels);

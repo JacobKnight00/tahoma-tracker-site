@@ -24,6 +24,15 @@ let refreshIntervalId;
 let latestData = null;
 let isViewingLatest = true;
 
+function ensureLabelForm() {
+  if (!labelForm) {
+    const container = document.getElementById('label-form-container');
+    if (container) {
+      labelForm = new LabelForm(container);
+    }
+  }
+}
+
 /**
  * Initialize the app
  */
@@ -90,6 +99,14 @@ function handleTimelineImageChange(data, timestamp) {
     isViewingLatest = false;
     statusDisplay.render(data);
   }
+
+  // Keep label form pointed at the image currently being viewed
+  ensureLabelForm();
+  if (labelForm && data) {
+    const ts = timestamp || data?.ts || data?.timestamp || null;
+    labelForm.setTarget(data, ts);
+  }
+
   updatePageTitleTense();
 }
 
@@ -99,6 +116,7 @@ function handleTimelineImageChange(data, timestamp) {
 async function loadLatestData() {
   try {
     const data = await fetchLatest();
+    const timestamp = data.ts || data.timestamp;
 
     // Store globally
     latestData = data;
@@ -112,14 +130,10 @@ async function loadLatestData() {
       metadataDisplay.render(data);
     }
 
-    // Initialize label form if not already done
-    const timestamp = data.ts || data.timestamp;
-    if (timestamp && !labelForm) {
-      labelForm = new LabelForm(
-        document.getElementById('label-form-container'),
-        timestamp
-      );
-      labelForm.render();
+    ensureLabelForm();
+
+    if (labelForm && isViewingLatest) {
+      labelForm.setTarget(data, timestamp);
     }
 
     // Update last updated time
@@ -155,6 +169,10 @@ window.addEventListener('timelineClose', () => {
       statusDisplay.render(latestData);
       imageViewer.render(latestData);
       metadataDisplay.render(latestData);
+      ensureLabelForm();
+      if (labelForm) {
+        labelForm.setTarget(latestData, latestData.ts || latestData.timestamp);
+      }
       timelineViewer.resetToLatest(latestData);
     }
     updatePageTitleTense();

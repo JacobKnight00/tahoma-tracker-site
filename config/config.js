@@ -8,8 +8,8 @@ export const config = {
     // For production, this will be the S3/CloudFront URL
     latestUrl: 'https://deaf937kouf5m.cloudfront.net/latest/latest.json',
 
-    // Label submission endpoint (will be API Gateway URL)
-    submitLabelUrl: '/api/labels',
+    // Label submission endpoint (Lambda Function URL)
+    submitLabelUrl: 'https://2wzfh4dbilq3h5yajwn74ipoxm0opeum.lambda-url.us-west-2.on.aws/',
 
     // Get unlabeled images
     unlabeledUrl: '/api/unlabeled',
