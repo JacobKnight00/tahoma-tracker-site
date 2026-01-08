@@ -37,7 +37,7 @@ export class StatusDisplay {
     clearElement(this.container);
 
     // Determine status
-    let statusText = 'NO';
+    let statusText = 'No';
     let statusClass = 'negative';
 
     const frameState = data.frame_state;
@@ -46,13 +46,13 @@ export class StatusDisplay {
     // Only show visibility when frame is good and a prediction exists
     if (isFrameGood && data.visibility !== null && data.visibility !== undefined) {
       if (data.visibility === 'out') {
-        statusText = 'YES';
+        statusText = 'Yes';
         statusClass = 'positive';
       } else if (data.visibility === 'partially_out') {
-        statusText = 'PARTIAL';
+        statusText = 'Partial';
         statusClass = 'partial';
       } else if (data.visibility === 'not_out') {
-        statusText = 'NO';
+        statusText = 'No';
         statusClass = 'negative';
       }
     }

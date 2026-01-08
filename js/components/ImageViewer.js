@@ -52,13 +52,22 @@ export class ImageViewer {
       this.renderError('No image available');
       return;
     }
+    
+    // Add a wrapper to maintain aspect ratio while loading
+    const wrapper = createElement('div', {
+      class: 'image-viewer__wrapper'
+    });
 
     // Create image element
     const img = createElement('img', {
-      class: 'image-viewer__img',
+      class: 'image-viewer__img image-viewer__img--loading',
       src: imageUrl,
       alt: altText,
       loading: 'eager', // Load immediately for main image
+    });
+
+    img.addEventListener('load', () => {
+      img.classList.remove('image-viewer__img--loading');
     });
 
     // Handle image load error
@@ -66,28 +75,44 @@ export class ImageViewer {
       this.renderError('Failed to load image');
     });
 
-    this.container.appendChild(img);
+    wrapper.appendChild(img);
+    this.container.appendChild(wrapper);
   }
 
   /**
    * Render image from URL directly
    * @param {string} url - Image URL
    * @param {string} altText - Alt text
+   * @param {boolean} skipLoadingState - Skip the loading opacity effect for quick transitions
    */
-  renderUrl(url, altText = 'Webcam image') {
+  renderUrl(url, altText = 'Webcam image', skipLoadingState = false) {
     clearElement(this.container);
+    
+    // Add a wrapper to maintain space while loading
+    const wrapper = createElement('div', {
+      class: 'image-viewer__wrapper'
+    });
 
+    const imgClass = skipLoadingState ? 'image-viewer__img' : 'image-viewer__img image-viewer__img--loading';
+    
     const img = createElement('img', {
-      class: 'image-viewer__img',
+      class: imgClass,
       src: url,
       alt: altText,
       loading: 'eager',
     });
 
+    if (!skipLoadingState) {
+      img.addEventListener('load', () => {
+        img.classList.remove('image-viewer__img--loading');
+      });
+    }
+
     img.addEventListener('error', () => {
       this.renderError('Failed to load image');
     });
 
-    this.container.appendChild(img);
+    wrapper.appendChild(img);
+    this.container.appendChild(wrapper);
   }
 }

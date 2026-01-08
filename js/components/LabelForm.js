@@ -14,11 +14,13 @@ export class LabelForm {
     this.statusMessage = '';
     this.statusType = null;
     this.isSubmitting = false;
+    this.hasSuccessfulSubmission = false;
 
     this.frameButtons = [];
     this.visibilityButtons = [];
     this.submitButton = null;
     this.statusMessageEl = null;
+    this.formElementsContainer = null;
 
     this.render();
   }
@@ -43,10 +45,10 @@ export class LabelForm {
     if (hasChanged) {
       this.selectedFrameState = null;
       this.selectedVisibility = null;
+      this.hasSuccessfulSubmission = false;
       this.updateStatusMessage(null, '');
+      this.render(); // Only re-render when the image actually changed
     }
-
-    this.render();
   }
 
   /**
@@ -106,9 +108,16 @@ export class LabelForm {
     this.submitButton.disabled = isSubmitDisabled;
 
     this.container.appendChild(this.statusMessageEl);
-    this.container.appendChild(frameStateGroup);
-    this.container.appendChild(visibilityGroup);
-    this.container.appendChild(this.submitButton);
+    
+    // Only show form elements if there hasn't been a successful submission
+    if (!this.hasSuccessfulSubmission) {
+      this.formElementsContainer = createElement('div', { class: 'correction-form__elements' }, [
+        frameStateGroup,
+        visibilityGroup,
+        this.submitButton
+      ]);
+      this.container.appendChild(this.formElementsContainer);
+    }
   }
 
   /**
@@ -217,7 +226,9 @@ export class LabelForm {
       }
 
       this.resetSelections();
+      this.hasSuccessfulSubmission = true;
       this.updateStatusMessage('success', 'Thank you for the feedback!');
+      this.render(); // Re-render to hide form elements
     } catch (error) {
       console.error('Failed to submit correction:', error);
       const message = error?.message || 'We could not submit your correction right now. Please try again in a moment.';

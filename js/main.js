@@ -118,16 +118,24 @@ async function loadLatestData() {
     const data = await fetchLatest();
     const timestamp = data.ts || data.timestamp;
 
+    // Check if image actually changed (avoid unnecessary re-renders and flashing)
+    const previousTimestamp = latestData?.ts || latestData?.timestamp;
+    const imageChanged = timestamp !== previousTimestamp;
+
     // Store globally
     latestData = data;
     window.latestData = data;
 
     // Only update UI if we're still viewing the latest
     if (isViewingLatest) {
-      // Render components
+      // Always update status display (small, doesn't cause flashing)
       statusDisplay.render(data);
-      imageViewer.render(data);
-      metadataDisplay.render(data);
+      
+      // Only re-render image and metadata if the image actually changed
+      if (imageChanged || !previousTimestamp) {
+        imageViewer.render(data);
+        metadataDisplay.render(data);
+      }
     }
 
     ensureLabelForm();
@@ -144,7 +152,8 @@ async function loadLatestData() {
 
     // Keep timeline captured display in sync when viewing latest
     if (isViewingLatest && timelineViewer && timestamp) {
-      timelineViewer.updateCapturedDisplay(timestamp);
+      const timestampDate = new Date(timestamp);
+      timelineViewer.updateCapturedDisplay(timestampDate);
     }
     
     updatePageTitleTense();

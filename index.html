@@ -22,11 +22,25 @@
   <main class="container">
     <!-- Status Section -->
     <section class="status-section" aria-label="Current visibility status">
-      <div class="status-header">
-        <h1 class="page-title"><span id="page-title-tense">Is</span> the Mountain Out?</h1>
-        <div id="status-display" class="status-value">
-          <div class="status-value__loading">
-            <div class="spinner"></div>
+      <div class="status-strip">
+        <div class="status-strip__banners">
+          <div class="status-strip__banner status-strip__banner--primary">MT. RAINIER</div>
+          <div class="status-strip__banner status-strip__banner--secondary">TAHOMA</div>
+        </div>
+        <div class="status-strip__mountain">
+          <svg viewBox="0 0 1200 100" xmlns="http://www.w3.org/2000/svg" class="mountain-svg" preserveAspectRatio="none">
+            <path d="M0,100 L100,60 L200,75 L300,40 L400,65 L500,30 L600,55 L700,45 L800,60 L900,35 L1000,50 L1100,40 L1200,100 Z" fill="currentColor" opacity="0.12"/>
+            <path d="M0,100 L150,70 L250,80 L350,50 L450,70 L550,45 L650,65 L750,55 L850,70 L950,50 L1050,60 L1150,55 L1200,100 Z" fill="currentColor" opacity="0.08"/>
+          </svg>
+        </div>
+        <div class="status-strip__content">
+          <div class="status-strip__question">
+            <span id="page-title-tense">Is</span> the Mountain Out?
+          </div>
+          <div id="status-display" class="status-strip__status">
+            <div class="status-value__loading">
+              <div class="spinner"></div>
+            </div>
           </div>
         </div>
       </div>
@@ -73,9 +87,7 @@
         <div class="timeline-controls-expanded" id="timeline-controls-expanded" style="display: none;">
           <div class="timeline-controls">
             <div class="timeline-control-left">
-              <button id="timeline-prev-day" class="timeline-nav-btn" aria-label="Previous day">←</button>
-              <div id="timeline-date-display" class="timeline-date">Today</div>
-              <button id="timeline-next-day" class="timeline-nav-btn" aria-label="Next day">→</button>
+              <div id="timeline-calendar-container" class="timeline-calendar-wrapper"></div>
               <button id="timeline-latest-btn" class="timeline-latest-btn" aria-label="Jump to latest">Jump to Latest</button>
             </div>
             <div class="timeline-control-right">
@@ -100,8 +112,7 @@
     <!-- Footer -->
     <footer class="footer">
       <p class="footer__text">
-        <a href="/history.html" class="footer__link">View History</a> •
-        Data from <a href="https://www.spaceneedle.com/webcam/" target="_blank" rel="noopener">Space Needle Panocam</a>
+        Images sourced from <a href="https://www.spaceneedle.com/webcam/" target="_blank" rel="noopener">Space Needle Panocam</a>
       </p>
       <p class="footer__text footer__text--small">
         Last updated: <span id="last-updated">--</span>

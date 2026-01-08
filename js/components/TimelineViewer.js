@@ -4,6 +4,7 @@
 import { getImageUrl, fetchAnalysis } from '../lib/api.js';
 import { formatTime, formatTimestamp } from '../utils/format.js';
 import { config } from '../../config/config.js';
+import { CalendarPicker } from './CalendarPicker.js';
 
 export class TimelineViewer {
   constructor(options) {
@@ -23,19 +24,32 @@ export class TimelineViewer {
     this.playInterval = null;
     this.imageCache = new Map();
     this.pendingLoad = null;
+    this.calendar = null;
+    this.dateStatusCache = new Map(); // Cache for date availability status
     
     this.initializeElements();
     this.setupEventListeners();
+    
+    // Try to initialize calendar immediately, will work if container exists
+    // Otherwise will be initialized when controls are first expanded
+    setTimeout(() => {
+      if (!this.calendar) {
+        this.initializeCalendar();
+      }
+    }, 100);
   }
   
   // Initialize and load today's frames
   async initialize() {
-    await this.loadDate(null, { render: false });
+    try {
+      await this.loadDate(null, { render: false });
+    } catch (error) {
+      console.error('TimelineViewer initialization failed:', error);
+    }
   }
   
   initializeElements() {
-    this.prevDayBtn = document.getElementById('timeline-prev-day');
-    this.nextDayBtn = document.getElementById('timeline-next-day');
+    this.calendarContainer = document.getElementById('timeline-calendar-container');
     this.dateDisplay = document.getElementById('timeline-date-display');
     this.timeDisplay = document.getElementById('timeline-time-display');
     this.playBtn = document.getElementById('timeline-play-btn');
@@ -47,11 +61,61 @@ export class TimelineViewer {
     this.scrubberTrack = document.getElementById('timeline-scrubber-track');
     this.scrubberHandle = document.getElementById('timeline-scrubber-handle');
     this.scrubberProgress = document.getElementById('timeline-scrubber-progress');
+    
+    console.log('Timeline elements initialized:', {
+      calendarContainer: this.calendarContainer,
+      controlsExpanded: this.controlsExpanded,
+      expandBtn: this.expandBtn
+    });
+  }
+  
+  initializeCalendar() {
+    if (!this.calendarContainer) {
+      console.log('Calendar container not found - will be initialized when controls expand');
+      return;
+    }
+    
+    try {
+      const maxDate = new Date();
+      maxDate.setHours(0, 0, 0, 0);
+      
+      // If it's before 4 AM, use yesterday as max date
+      if (new Date().getHours() < 4) {
+        maxDate.setDate(maxDate.getDate() - 1);
+      }
+      
+      this.calendar = new CalendarPicker({
+        currentDate: new Date(),
+        selectedDate: this.currentDate,
+        minDate: this.minDate,
+        maxDate: maxDate,
+        onDateSelect: (date) => this.handleDateSelect(date),
+        getDateStatus: (date) => this.getDateStatus(date)
+      });
+      
+      this.calendar.mount(this.calendarContainer);
+      console.log('Calendar initialized successfully');
+    } catch (error) {
+      console.error('Failed to initialize calendar:', error);
+    }
+  }
+  
+  async handleDateSelect(date) {
+    console.log('Date selected:', date);
+    this.currentDate = new Date(date);
+    this.currentDate.setHours(0, 0, 0, 0);
+    console.log('Loading frames for date:', this.currentDate);
+    await this.loadDate(null, { render: true });
+  }
+  
+  getDateStatus(date) {
+    // Return color code for dates: 'visible', 'partial', 'no-data', or null
+    // This can be expanded in the future to show actual image availability
+    const cacheKey = date.toISOString().split('T')[0];
+    return this.dateStatusCache.get(cacheKey) || null;
   }
   
   setupEventListeners() {
-    this.prevDayBtn?.addEventListener('click', () => this.prevDay());
-    this.nextDayBtn?.addEventListener('click', () => this.nextDay());
     this.playBtn?.addEventListener('click', () => this.togglePlay());
     this.latestBtn?.addEventListener('click', () => this.jumpToLatest());
     this.expandBtn?.addEventListener('click', () => this.toggleExpanded());
@@ -221,6 +285,8 @@ export class TimelineViewer {
     const currentFrame = this.frames[this.currentFrameIndex];
     const imageUrl = getImageUrl(currentFrame.toISOString());
     
+    console.log('updateView: Loading image for', formatTime(currentFrame), 'URL:', imageUrl);
+    
     // Update time display
     if (this.timeDisplay) {
       this.timeDisplay.textContent = formatTime(currentFrame);
@@ -230,8 +296,9 @@ export class TimelineViewer {
     // Update scrubber
     this.updateScrubberPosition();
     
-    // Update image viewer and metadata
-    this.imageViewer.renderUrl(imageUrl, `Mt. Rainier at ${formatTime(currentFrame)}`);
+    // Use skipLoadingState for smooth scrubbing, but show loading for date changes
+    const skipLoading = options.skipLoadingState !== false;
+    this.imageViewer.renderUrl(imageUrl, `Mt. Rainier at ${formatTime(currentFrame)}`, skipLoading);
     
     // Use latest data if frame matches latest timestamp
     const latestData = window.latestData;
@@ -274,6 +341,11 @@ export class TimelineViewer {
     this.imageCache.clear();
     this.isLoading = true;
     
+    // Update calendar to reflect selected date
+    if (this.calendar) {
+      this.calendar.setDate(this.currentDate);
+    }
+    
     // Update date display
     this.updateDateDisplay();
     
@@ -306,7 +378,8 @@ export class TimelineViewer {
         this.updateCapturedDisplay(this.frames[this.currentFrameIndex]);
         
         if (options.render) {
-          await this.updateView();
+          console.log('Rendering view after loading frames, frame count:', this.frames.length);
+          await this.updateView({ skipLoadingState: false });
         }
       }
     } catch (error) {
@@ -354,17 +427,13 @@ export class TimelineViewer {
   }
   
   updateNavigationButtons() {
-    const maxDate = this.getMaxDate();
-    const minDate = this.getMinDate();
-    const currentDateMidnight = new Date(this.currentDate);
-    currentDateMidnight.setHours(0, 0, 0, 0);
+    // Update calendar date range
+    if (this.calendar) {
+      const maxDate = this.getMaxDate();
+      const minDate = this.getMinDate();
+      this.calendar.setDateRange(minDate, maxDate);
+    }
     
-    if (this.nextDayBtn) {
-      this.nextDayBtn.disabled = this.isLoading || currentDateMidnight >= maxDate;
-    }
-    if (this.prevDayBtn) {
-      this.prevDayBtn.disabled = this.isLoading || (minDate && currentDateMidnight <= minDate);
-    }
     if (this.playBtn) {
       this.playBtn.disabled = this.isLoading;
     }
@@ -388,55 +457,22 @@ export class TimelineViewer {
     const atLatest = this.isAtLatestFrame();
     this.latestBtn.disabled = this.isLoading || atLatest;
   }
-
-  prevDay() {
-    if (this.isLoading) return;
-    const minDate = this.getMinDate();
-    const currentMidnight = new Date(this.currentDate);
-    currentMidnight.setHours(0, 0, 0, 0);
-    if (minDate && currentMidnight <= minDate) return;
-
-    const targetTime = this.frames[this.currentFrameIndex] || null;
-    this.currentDate.setDate(this.currentDate.getDate() - 1);
-    this.loadDate(targetTime ? this.shiftDateToCurrent(targetTime) : null, { render: true });
-  }
-  
-  nextDay() {
-    if (this.isLoading) return;
-    const maxDate = this.getMaxDate();
-    
-    const nextDate = new Date(this.currentDate);
-    nextDate.setDate(nextDate.getDate() + 1);
-    nextDate.setHours(0, 0, 0, 0);
-    
-    if (nextDate <= maxDate) {
-      const targetTime = this.frames[this.currentFrameIndex] || null;
-      this.currentDate = nextDate;
-      this.loadDate(targetTime ? this.shiftDateToCurrent(targetTime) : null, { render: true });
-    }
-  }
-
-  shiftDateToCurrent(time) {
-    const target = new Date(this.currentDate);
-    target.setHours(time.getHours(), time.getMinutes(), 0, 0);
-    return target;
-  }
   
   prevFrame() {
     if (this.currentFrameIndex > 0) {
       this.currentFrameIndex--;
-      this.updateView();
+      this.updateView({ skipLoadingState: true });
     }
   }
   
   nextFrame() {
     if (this.currentFrameIndex < this.frames.length - 1) {
       this.currentFrameIndex++;
-      this.updateView();
+      this.updateView({ skipLoadingState: true });
     } else if (this.isPlaying) {
       // restart from beginning when at last frame during play
       this.currentFrameIndex = 0;
-      this.updateView();
+      this.updateView({ skipLoadingState: true });
     }
   }
   
@@ -488,13 +524,24 @@ export class TimelineViewer {
   
   // Toggle expanded controls
   toggleExpanded() {
+    console.log('toggleExpanded called');
     const isExpanded = this.controlsExpanded.style.display !== 'none';
     if (isExpanded) {
       this.controlsExpanded.style.display = 'none';
       this.expandBtn.classList.remove('expanded');
+      console.log('Controls collapsed');
     } else {
       this.controlsExpanded.style.display = 'block';
       this.expandBtn.classList.add('expanded');
+      console.log('Controls expanded');
+      
+      // Initialize calendar if not already done (when controls are first expanded)
+      if (!this.calendar) {
+        console.log('Calendar not initialized yet, initializing now...');
+        this.initializeCalendar();
+      } else {
+        console.log('Calendar already initialized');
+      }
     }
   }
   
@@ -528,8 +575,6 @@ export class TimelineViewer {
   }
 
   setNavigationDisabled(disabled) {
-    if (this.prevDayBtn) this.prevDayBtn.disabled = disabled;
-    if (this.nextDayBtn) this.nextDayBtn.disabled = disabled;
     if (this.playBtn) this.playBtn.disabled = disabled;
     if (this.latestBtn) this.latestBtn.disabled = disabled;
     if (this.expandBtn) this.expandBtn.disabled = disabled;
