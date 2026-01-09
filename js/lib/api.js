@@ -426,18 +426,68 @@ export async function fetchImage(keyOrTimestamp) {
 
 /**
  * Fetch daily manifest listing all available images for a date
- * @param {string} date - Date in YYYY-MM-DD format
- * @returns {Promise<Object>} Manifest with timestamps array
+ * @param {Date|string} dateInput - Date object or date in YYYY-MM-DD format
+ * @returns {Promise<Object>} Manifest with images array and summary
  */
-export async function fetchDayManifest(date) {
-  const [year, month, day] = date.split('-');
-  const path = `manifests/${year}/${month}/${day}.json`;
+export async function fetchDailyManifest(dateInput) {
+  let dateStr;
+  
+  if (dateInput instanceof Date) {
+    const year = dateInput.getFullYear();
+    const month = String(dateInput.getMonth() + 1).padStart(2, '0');
+    const day = String(dateInput.getDate()).padStart(2, '0');
+    dateStr = `${year}-${month}-${day}`;
+  } else {
+    dateStr = dateInput;
+  }
+  
+  // Check if this is today - use current.json
+  const today = new Date();
+  const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+  
+  let path;
+  if (dateStr === todayStr) {
+    path = 'manifests/daily/current.json';
+  } else {
+    const [year, month, day] = dateStr.split('-');
+    path = `manifests/daily/${year}/${month}/${day}.json`;
+  }
+  
   const url = new URL(path, config.imageBaseUrl);
-
   const response = await fetch(url.toString());
 
   if (!response.ok) {
-    throw new Error(`Failed to fetch manifest for ${date}: ${response.statusText}`);
+    throw new Error(`Failed to fetch daily manifest for ${dateStr}: ${response.statusText}`);
+  }
+
+  return response.json();
+}
+
+/**
+ * Fetch monthly manifest for calendar color-coding
+ * @param {number} year - Year (e.g., 2025)
+ * @param {number} month - Month (1-12)
+ * @returns {Promise<Object>} Monthly manifest with days object
+ */
+export async function fetchMonthlyManifest(year, month) {
+  const monthStr = String(month).padStart(2, '0');
+  
+  // Check if this is current month - use current.json
+  const today = new Date();
+  const isCurrentMonth = year === today.getFullYear() && month === (today.getMonth() + 1);
+  
+  let path;
+  if (isCurrentMonth) {
+    path = 'manifests/monthly/current.json';
+  } else {
+    path = `manifests/monthly/${year}/${monthStr}.json`;
+  }
+  
+  const url = new URL(path, config.imageBaseUrl);
+  const response = await fetch(url.toString());
+
+  if (!response.ok) {
+    throw new Error(`Failed to fetch monthly manifest for ${year}-${monthStr}: ${response.statusText}`);
   }
 
   return response.json();

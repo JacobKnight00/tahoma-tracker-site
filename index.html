@@ -94,6 +94,30 @@
               <button id="timeline-play-btn" class="timeline-play-btn" aria-label="Play/Pause">▶ Play</button>
             </div>
           </div>
+          
+          <!-- Day Statistics -->
+          <div id="timeline-stats" class="timeline-stats" style="display: none;">
+            <div class="timeline-stats__title">Today's Stats</div>
+            <div class="timeline-stats__grid">
+              <div class="timeline-stat">
+                <div class="timeline-stat__value timeline-stat__value--out" id="timeline-stats-day-pct">--%</div>
+                <div class="timeline-stat__label">Visible Today</div>
+              </div>
+              <div class="timeline-stat">
+                <div class="timeline-stat__value" id="timeline-stats-month-days">--</div>
+                <div class="timeline-stat__label">Days Out This Month</div>
+              </div>
+              <div class="timeline-stat" id="timeline-stats-best-day-container" style="display: none;">
+                <div class="timeline-stat__value" id="timeline-stats-best-day">--</div>
+                <div class="timeline-stat__label">Best Day This Month</div>
+              </div>
+              <div class="timeline-stat" id="timeline-stats-streak-container" style="display: none;">
+                <div class="timeline-stat__value" id="timeline-stats-streak">--</div>
+                <div class="timeline-stat__label">Longest Streak</div>
+              </div>
+            </div>
+          </div>
+          
           <div id="timeline-time-display" class="timeline-time">--</div>
         </div>
       </div>

@@ -47,9 +47,6 @@ export class CalendarPicker {
           </div>
           <div class="calendar-picker__days"></div>
         </div>
-        <div class="calendar-picker__footer">
-          <button class="calendar-picker__today-btn">Today</button>
-        </div>
       </div>
     `;
     
@@ -87,7 +84,6 @@ export class CalendarPicker {
     this.nextMonthBtn = this.element.querySelector('.calendar-picker__next-month');
     this.monthYearDisplay = this.element.querySelector('.calendar-picker__month-year');
     this.daysContainer = this.element.querySelector('.calendar-picker__days');
-    this.todayBtn = this.element.querySelector('.calendar-picker__today-btn');
   }
   
   /**
@@ -99,7 +95,6 @@ export class CalendarPicker {
     this.nextDayBtn.addEventListener('click', () => this.navigateDay(1));
     this.prevMonthBtn.addEventListener('click', () => this.navigateMonth(-1));
     this.nextMonthBtn.addEventListener('click', () => this.navigateMonth(1));
-    this.todayBtn.addEventListener('click', () => this.selectToday());
     
     // Close calendar when clicking outside
     document.addEventListener('click', (e) => {
@@ -320,9 +315,17 @@ export class CalendarPicker {
       const status = this.getDateStatus(date);
       if (status) {
         dayEl.classList.add(`calendar-picker__day--${status}`);
+        
+        // Days with no images should not be clickable
+        if (status === 'no-images') {
+          dayEl.disabled = true;
+        } else {
+          dayEl.addEventListener('click', () => this.handleDateClick(date));
+        }
+      } else {
+        // No status yet (loading) or has images without visibility
+        dayEl.addEventListener('click', () => this.handleDateClick(date));
       }
-      
-      dayEl.addEventListener('click', () => this.handleDateClick(date));
     }
     
     return dayEl;

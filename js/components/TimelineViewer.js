@@ -1,7 +1,7 @@
 // Timeline Viewer Component
 // Embedded timeline viewer for the home page
 
-import { getImageUrl, fetchAnalysis } from '../lib/api.js';
+import { getImageUrl, fetchAnalysis, fetchDailyManifest, fetchMonthlyManifest } from '../lib/api.js';
 import { formatTime, formatTimestamp } from '../utils/format.js';
 import { config } from '../../config/config.js';
 import { CalendarPicker } from './CalendarPicker.js';
@@ -26,6 +26,9 @@ export class TimelineViewer {
     this.pendingLoad = null;
     this.calendar = null;
     this.dateStatusCache = new Map(); // Cache for date availability status
+    this.monthlyManifestCache = new Map(); // Cache for monthly manifests
+    this.currentDayManifest = null; // Store current day's manifest for visibility data
+    this.currentDayStats = null; // Store current day's summary stats
     
     this.initializeElements();
     this.setupEventListeners();
@@ -62,10 +65,20 @@ export class TimelineViewer {
     this.scrubberHandle = document.getElementById('timeline-scrubber-handle');
     this.scrubberProgress = document.getElementById('timeline-scrubber-progress');
     
+    // Stats elements
+    this.statsContainer = document.getElementById('timeline-stats');
+    this.statsDayPct = document.getElementById('timeline-stats-day-pct');
+    this.statsMonthDays = document.getElementById('timeline-stats-month-days');
+    this.statsBestDayContainer = document.getElementById('timeline-stats-best-day-container');
+    this.statsBestDay = document.getElementById('timeline-stats-best-day');
+    this.statsStreakContainer = document.getElementById('timeline-stats-streak-container');
+    this.statsStreak = document.getElementById('timeline-stats-streak');
+    
     console.log('Timeline elements initialized:', {
       calendarContainer: this.calendarContainer,
       controlsExpanded: this.controlsExpanded,
-      expandBtn: this.expandBtn
+      expandBtn: this.expandBtn,
+      statsContainer: this.statsContainer
     });
   }
   
@@ -108,10 +121,64 @@ export class TimelineViewer {
     await this.loadDate(null, { render: true });
   }
   
+  /**
+   * Get monthly manifest for calendar color-coding
+   */
+  async getMonthlyManifest(year, month) {
+    const cacheKey = `${year}-${String(month).padStart(2, '0')}`;
+    
+    if (this.monthlyManifestCache.has(cacheKey)) {
+      return this.monthlyManifestCache.get(cacheKey);
+    }
+    
+    try {
+      const manifest = await fetchMonthlyManifest(year, month);
+      this.monthlyManifestCache.set(cacheKey, manifest);
+      return manifest;
+    } catch (error) {
+      console.warn(`Failed to fetch monthly manifest for ${year}-${month}:`, error);
+      return null;
+    }
+  }
+  
   getDateStatus(date) {
-    // Return color code for dates: 'visible', 'partial', 'no-data', or null
-    // This can be expanded in the future to show actual image availability
+    // Return status for dates: 'visible', 'partial', 'no-images', or null (has images, no visibility)
     const cacheKey = date.toISOString().split('T')[0];
+    
+    // Check cache first
+    if (this.dateStatusCache.has(cacheKey)) {
+      return this.dateStatusCache.get(cacheKey);
+    }
+    
+    // Asynchronously load monthly manifest and update cache
+    // This will cause the calendar to re-render when data arrives
+    const year = date.getFullYear();
+    const month = date.getMonth() + 1;
+    
+    this.getMonthlyManifest(year, month).then(manifest => {
+      if (!manifest || !manifest.days) return;
+      
+      const dayStr = String(date.getDate()).padStart(2, '0');
+      const dayInfo = manifest.days[dayStr];
+      
+      let status = null;
+      if (!dayInfo || dayInfo.image_count === 0) {
+        status = 'no-images'; // No images for this day - grey out
+      } else if (dayInfo.had_out) {
+        status = 'visible'; // Mountain was out - green dot
+      } else if (dayInfo.had_partially_out) {
+        status = 'partial'; // Partially visible - yellow dot
+      }
+      // If has images but no visibility, status stays null (no dot, but clickable)
+      
+      this.dateStatusCache.set(cacheKey, status);
+      
+      // Trigger calendar re-render if it exists
+      if (this.calendar) {
+        this.calendar.renderCalendar();
+      }
+    });
+    
     return this.dateStatusCache.get(cacheKey) || null;
   }
   
@@ -209,31 +276,55 @@ export class TimelineViewer {
   }
   
   async fetchFramesForDay(date) {
-    const potentialTimestamps = this.generatePotentialTimestamps(date);
-    const availableFrames = [];
-    const batchSize = 10;
-    
-    for (let i = 0; i < potentialTimestamps.length; i += batchSize) {
-      const batch = potentialTimestamps.slice(i, i + batchSize);
-      const results = await Promise.allSettled(
-        batch.map(async (timestamp) => {
-          try {
-            await fetchAnalysis(timestamp.toISOString());
-            return timestamp;
-          } catch (error) {
-            return null;
-          }
-        })
-      );
+    try {
+      // Try to fetch daily manifest first (efficient, single request)
+      const manifest = await fetchDailyManifest(date);
+      this.currentDayManifest = manifest; // Store for visibility data and stats
+      this.currentDayStats = manifest.summary || null;
       
-      results.forEach((result) => {
-        if (result.status === 'fulfilled' && result.value !== null) {
-          availableFrames.push(result.value);
-        }
+      // Extract timestamps from manifest
+      const frames = manifest.images.map(img => {
+        const [year, month, day] = manifest.date.split('-');
+        const hours = img.time.substring(0, 2);
+        const minutes = img.time.substring(2, 4);
+        return new Date(parseInt(year), parseInt(month) - 1, parseInt(day), parseInt(hours), parseInt(minutes));
       });
+      
+      console.log(`Loaded ${frames.length} frames from manifest for ${manifest.date}`);
+      return frames;
+      
+    } catch (error) {
+      console.warn('Failed to load manifest, falling back to probing:', error);
+      this.currentDayManifest = null;
+      this.currentDayStats = null;
+      
+      // Fallback: probe for frames individually (old method)
+      const potentialTimestamps = this.generatePotentialTimestamps(date);
+      const availableFrames = [];
+      const batchSize = 10;
+      
+      for (let i = 0; i < potentialTimestamps.length; i += batchSize) {
+        const batch = potentialTimestamps.slice(i, i + batchSize);
+        const results = await Promise.allSettled(
+          batch.map(async (timestamp) => {
+            try {
+              await fetchAnalysis(timestamp.toISOString());
+              return timestamp;
+            } catch (error) {
+              return null;
+            }
+          })
+        );
+        
+        results.forEach((result) => {
+          if (result.status === 'fulfilled' && result.value !== null) {
+            availableFrames.push(result.value);
+          }
+        });
+      }
+      
+      return availableFrames;
     }
-    
-    return availableFrames;
   }
   
   preloadImage(url) {
@@ -277,6 +368,235 @@ export class TimelineViewer {
     if (this.scrubberProgress) {
       this.scrubberProgress.style.width = `${percent}%`;
     }
+    
+    // Update handle fill color based on current segment
+    this.updateHandleColor();
+    
+    // Update visibility segments on scrubber
+    this.updateScrubberSegments();
+  }
+  
+  /**
+   * Update handle fill color to match current segment
+   */
+  updateHandleColor() {
+    if (!this.scrubberHandle || !this.currentDayManifest) return;
+    
+    const images = this.currentDayManifest.images || [];
+    if (images.length === 0 || this.currentFrameIndex >= images.length) return;
+    
+    const currentImage = images[this.currentFrameIndex];
+    let color;
+    
+    if (currentImage.frame_state === 'good' && currentImage.visibility === 'out') {
+      color = 'var(--color-nps-green-light)';
+    } else if (currentImage.frame_state === 'good' && currentImage.visibility === 'partially_out') {
+      color = 'var(--color-nps-brown)';
+    } else if (currentImage.frame_state === 'good' && currentImage.visibility === 'not_out') {
+      color = 'var(--color-gray-200)';
+    } else {
+      color = 'var(--color-gray-400)';
+    }
+    
+    this.scrubberHandle.style.backgroundColor = color;
+  }
+  
+  /**
+   * Add color-coded visibility segments to scrubber track
+   */
+  updateScrubberSegments() {
+    if (!this.scrubberTrack || !this.currentDayManifest) return;
+    
+    // Remove existing segments
+    const existingSegments = this.scrubberTrack.querySelectorAll('.timeline-scrubber-segment');
+    existingSegments.forEach(seg => seg.remove());
+    
+    const images = this.currentDayManifest.images || [];
+    if (images.length === 0) return;
+    
+    // Create colored segments for each image based on visibility
+    images.forEach((img, index) => {
+      const segment = document.createElement('div');
+      segment.className = 'timeline-scrubber-segment';
+      
+      // Determine color based on visibility
+      if (img.frame_state === 'good' && img.visibility === 'out') {
+        segment.classList.add('timeline-scrubber-segment--out');
+      } else if (img.frame_state === 'good' && img.visibility === 'partially_out') {
+        segment.classList.add('timeline-scrubber-segment--partial');
+      } else if (img.frame_state === 'good' && img.visibility === 'not_out') {
+        segment.classList.add('timeline-scrubber-segment--not-out');
+      } else {
+        segment.classList.add('timeline-scrubber-segment--other');
+      }
+      
+      // Add tooltip with time and visibility info
+      const time = `${img.time.substring(0, 2)}:${img.time.substring(2, 4)}`;
+      const visLabel = img.visibility ? img.visibility.replace(/_/g, ' ') : img.frame_state;
+      const conf = img.visibility_prob ? ` (${Math.round(img.visibility_prob * 100)}%)` : '';
+      segment.title = `${time} - ${visLabel}${conf}`;
+      
+      // Position and size the segment
+      const segmentWidth = 100 / images.length;
+      const segmentLeft = (index / images.length) * 100;
+      
+      segment.style.left = `${segmentLeft}%`;
+      segment.style.width = `${segmentWidth}%`;
+      
+      this.scrubberTrack.appendChild(segment);
+    });
+  }
+  
+  /**
+   * Update the stats display with day percentage and monthly stats
+   */
+  async updateStatsDisplay() {
+    if (!this.statsContainer) return;
+    
+    if (!this.currentDayStats || !this.currentDayManifest) {
+      // Hide stats if no data available
+      if (this.statsContainer.style) {
+        this.statsContainer.style.display = 'none';
+      }
+      return;
+    }
+    
+    // Show stats container
+    if (this.statsContainer.style) {
+      this.statsContainer.style.display = '';
+    }
+    
+    // Update date in title
+    const statsTitle = this.statsContainer.querySelector('.timeline-stats__title');
+    const manifestDate = new Date(this.currentDayManifest.date);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    manifestDate.setHours(0, 0, 0, 0);
+    
+    if (statsTitle) {
+      if (manifestDate.getTime() === today.getTime()) {
+        statsTitle.textContent = "Today's Stats";
+      } else {
+        const options = { month: 'short', day: 'numeric' };
+        statsTitle.textContent = `Stats for ${manifestDate.toLocaleDateString('en-US', options)}`;
+      }
+    }
+    
+    // Calculate day visibility percentage (out + partial)
+    const stats = this.currentDayStats;
+    const outCount = stats.out_count || 0;
+    const partialCount = stats.partially_out_count || 0;
+    const total = stats.total || 1;
+    const visiblePct = Math.round(((outCount + partialCount) / total) * 100);
+    
+    if (this.statsDayPct) {
+      this.statsDayPct.textContent = `${visiblePct}%`;
+    }
+    
+    // Get monthly stats
+    const year = manifestDate.getFullYear();
+    const month = manifestDate.getMonth() + 1;
+    
+    // Hide optional stats by default
+    if (this.statsBestDayContainer) this.statsBestDayContainer.style.display = 'none';
+    if (this.statsStreakContainer) this.statsStreakContainer.style.display = 'none';
+    
+    try {
+      const monthlyManifest = await this.getMonthlyManifest(year, month);
+      
+      if (this.statsMonthDays && monthlyManifest?.stats) {
+        const daysWithOut = monthlyManifest.stats.days_with_out || 0;
+        this.statsMonthDays.textContent = daysWithOut;
+      }
+      
+      // Best day this month (only show if there were days out)
+      if (monthlyManifest?.days && monthlyManifest?.stats?.days_with_out > 0) {
+        const bestDay = this.findBestDayInMonth(monthlyManifest, year, month);
+        if (bestDay && this.statsBestDay && this.statsBestDayContainer) {
+          this.statsBestDay.textContent = bestDay;
+          this.statsBestDayContainer.style.display = '';
+        }
+      }
+      
+      // Longest streak (including partial visibility)
+      if (monthlyManifest?.days) {
+        const streak = this.findLongestStreak(monthlyManifest);
+        if (streak > 1 && this.statsStreak && this.statsStreakContainer) {
+          this.statsStreak.textContent = `${streak} days`;
+          this.statsStreakContainer.style.display = '';
+        }
+      }
+      
+    } catch (error) {
+      console.warn('Failed to get monthly stats:', error);
+      if (this.statsMonthDays) {
+        this.statsMonthDays.textContent = '--';
+      }
+    }
+  }
+  
+  /**
+   * Find the best day in the month (highest visibility)
+   */
+  findBestDayInMonth(monthlyManifest, year, month) {
+    const days = monthlyManifest.days;
+    if (!days) return null;
+    
+    let bestDay = null;
+    let bestScore = -1;
+    
+    for (const [dayStr, dayInfo] of Object.entries(days)) {
+      // Score based on out_count primarily, with partial as tiebreaker
+      const score = (dayInfo.out_count || 0) * 100 + (dayInfo.partially_out_count || 0);
+      if (score > bestScore && dayInfo.out_count > 0) {
+        bestScore = score;
+        bestDay = dayStr;
+      }
+    }
+    
+    if (!bestDay) return null;
+    
+    // Format as "Jan 5" 
+    const date = new Date(year, month - 1, parseInt(bestDay));
+    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  }
+  
+  /**
+   * Find the longest streak of consecutive days with visibility (out or partial)
+   */
+  findLongestStreak(monthlyManifest) {
+    const days = monthlyManifest.days;
+    if (!days) return 0;
+    
+    // Get sorted day numbers
+    const dayNumbers = Object.keys(days)
+      .map(d => parseInt(d))
+      .sort((a, b) => a - b);
+    
+    let longestStreak = 0;
+    let currentStreak = 0;
+    let lastDay = -1;
+    
+    for (const dayNum of dayNumbers) {
+      const dayInfo = days[String(dayNum).padStart(2, '0')];
+      const hasVisibility = dayInfo.had_out || dayInfo.had_partially_out;
+      
+      if (hasVisibility) {
+        // Check if consecutive
+        if (lastDay === -1 || dayNum === lastDay + 1) {
+          currentStreak++;
+        } else {
+          currentStreak = 1;
+        }
+        lastDay = dayNum;
+        longestStreak = Math.max(longestStreak, currentStreak);
+      } else {
+        currentStreak = 0;
+        lastDay = -1;
+      }
+    }
+    
+    return longestStreak;
   }
   
   async updateView(options = {}) {
@@ -295,6 +615,9 @@ export class TimelineViewer {
     
     // Update scrubber
     this.updateScrubberPosition();
+    
+    // Update stats display
+    this.updateStatsDisplay();
     
     // Use skipLoadingState for smooth scrubbing, but show loading for date changes
     const skipLoading = options.skipLoadingState !== false;
@@ -356,6 +679,9 @@ export class TimelineViewer {
     try {
       this.setNavigationDisabled(true);
       this.frames = await this.fetchFramesForDay(this.currentDate);
+      
+      // Update stats right after loading frames (when manifest data is fresh)
+      this.updateStatsDisplay();
       
       if (this.frames.length === 0) {
         if (this.timeDisplay) {
