@@ -13,11 +13,7 @@ export class ImageViewer {
    * Render loading state
    */
   renderLoading() {
-    this.container.innerHTML = `
-      <div class="image-viewer__loading">
-        <div class="spinner"></div>
-      </div>
-    `;
+    this.showPlaceholder();
   }
 
   /**
@@ -33,13 +29,28 @@ export class ImageViewer {
   }
 
   /**
+   * Show placeholder with spinner by clearing current image
+   */
+  showPlaceholder() {
+    let wrapper = this.container.querySelector('.image-viewer__wrapper');
+    if (!wrapper) {
+      clearElement(this.container);
+      wrapper = createElement('div', { class: 'image-viewer__wrapper' });
+      this.container.appendChild(wrapper);
+    } else {
+      wrapper.innerHTML = '';
+    }
+    // Add spinner
+    const spinner = createElement('div', { class: 'image-viewer__spinner' });
+    wrapper.appendChild(spinner);
+  }
+
+  /**
    * Render image from data
    * @param {Object} data - Data containing image URL or S3 key
    * @param {string} altText - Alt text for accessibility
    */
   render(data, altText = 'Mt. Rainier from Space Needle webcam') {
-    clearElement(this.container);
-
     // Get image URL (from image_url, cropped_s3_key, or ts)
     let imageUrl;
     if (data.image_url) {
@@ -52,31 +63,42 @@ export class ImageViewer {
       this.renderError('No image available');
       return;
     }
-    
-    // Add a wrapper to maintain aspect ratio while loading
-    const wrapper = createElement('div', {
-      class: 'image-viewer__wrapper'
-    });
 
-    // Create image element
+    // Reuse existing wrapper or create new one
+    let wrapper = this.container.querySelector('.image-viewer__wrapper');
+    if (!wrapper) {
+      clearElement(this.container);
+      wrapper = createElement('div', { class: 'image-viewer__wrapper' });
+      this.container.appendChild(wrapper);
+    }
+    
+    // Clear old images but keep/add spinner
+    wrapper.querySelectorAll('img').forEach(img => img.remove());
+    if (!wrapper.querySelector('.image-viewer__spinner')) {
+      wrapper.appendChild(createElement('div', { class: 'image-viewer__spinner' }));
+    }
+
+    // Create new image element (hidden until loaded)
     const img = createElement('img', {
       class: 'image-viewer__img image-viewer__img--loading',
       src: imageUrl,
       alt: altText,
-      loading: 'eager', // Load immediately for main image
+      loading: 'eager',
     });
 
     img.addEventListener('load', () => {
+      // Remove spinner
+      const spinner = wrapper.querySelector('.image-viewer__spinner');
+      if (spinner) spinner.remove();
       img.classList.remove('image-viewer__img--loading');
     });
 
-    // Handle image load error
-    img.addEventListener('error', () => {
+    img.addEventListener('error', (e) => {
+      console.error('ImageViewer.render: Image failed to load', e);
       this.renderError('Failed to load image');
     });
 
     wrapper.appendChild(img);
-    this.container.appendChild(wrapper);
   }
 
   /**
@@ -86,33 +108,40 @@ export class ImageViewer {
    * @param {boolean} skipLoadingState - Skip the loading opacity effect for quick transitions
    */
   renderUrl(url, altText = 'Webcam image', skipLoadingState = false) {
-    clearElement(this.container);
-    
-    // Add a wrapper to maintain space while loading
-    const wrapper = createElement('div', {
-      class: 'image-viewer__wrapper'
-    });
+    // Reuse existing wrapper or create new one
+    let wrapper = this.container.querySelector('.image-viewer__wrapper');
+    if (!wrapper) {
+      clearElement(this.container);
+      wrapper = createElement('div', { class: 'image-viewer__wrapper' });
+      this.container.appendChild(wrapper);
+    }
 
-    const imgClass = skipLoadingState ? 'image-viewer__img' : 'image-viewer__img image-viewer__img--loading';
+    // For day changes, clear immediately to show placeholder
+    if (!skipLoadingState) {
+      wrapper.innerHTML = '';
+    }
+
+    const existingImg = wrapper.querySelector('img');
     
     const img = createElement('img', {
-      class: imgClass,
+      class: skipLoadingState ? 'image-viewer__img' : 'image-viewer__img image-viewer__img--loading',
       src: url,
       alt: altText,
       loading: 'eager',
     });
 
-    if (!skipLoadingState) {
-      img.addEventListener('load', () => {
-        img.classList.remove('image-viewer__img--loading');
+    img.addEventListener('load', () => {
+      // Remove spinner and other images
+      wrapper.querySelectorAll('.image-viewer__spinner, img').forEach(el => {
+        if (el !== img) el.remove();
       });
-    }
+      img.classList.remove('image-viewer__img--loading');
+    });
 
     img.addEventListener('error', () => {
       this.renderError('Failed to load image');
     });
 
     wrapper.appendChild(img);
-    this.container.appendChild(wrapper);
   }
 }

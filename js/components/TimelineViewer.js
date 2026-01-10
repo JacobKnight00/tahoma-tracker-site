@@ -660,6 +660,11 @@ export class TimelineViewer {
     if (this.isPlaying) {
       this.togglePlay();
     }
+
+    // Show placeholder when changing days (not on initial load with render: false)
+    if (options.render) {
+      this.imageViewer.showPlaceholder();
+    }
     
     this.imageCache.clear();
     this.isLoading = true;

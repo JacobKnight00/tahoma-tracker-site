@@ -4,10 +4,6 @@
 export const config = {
   // API endpoints
   api: {
-    // For local development, use a local JSON file
-    // For production, this will be the S3/CloudFront URL
-    latestUrl: 'https://deaf937kouf5m.cloudfront.net/latest/latest.json',
-
     // Label submission endpoint (Lambda Function URL)
     submitLabelUrl: 'https://2wzfh4dbilq3h5yajwn74ipoxm0opeum.lambda-url.us-west-2.on.aws/',
 

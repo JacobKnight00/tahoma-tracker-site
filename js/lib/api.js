@@ -206,16 +206,26 @@ function buildLabelPayload(labelData = {}) {
  * @returns {Promise<Object>} Latest data
  */
 export async function fetchLatest() {
-  const response = await fetch(config.api.latestUrl, {
-    cache: 'no-store', // Don't cache, always get fresh data
-  });
+  // Get today's manifest to find the latest image and last_checked_at
+  const manifest = await fetchDailyManifest(new Date());
+  const images = manifest.images || [];
+  const lastImage = images[images.length - 1];
 
-  if (!response.ok) {
-    throw new Error(`Failed to fetch latest data: ${response.statusText}`);
+  if (!lastImage) {
+    throw new Error('No images available today');
   }
 
-  const raw = await response.json();
-  return normalizeData(raw);
+  // Build imageId from manifest date and time
+  const [year, month, day] = manifest.date.split('-');
+  const imageId = `${year}/${month}/${day}/${lastImage.time}`;
+
+  // Fetch full analysis for rich data (probabilities, model version, etc.)
+  const data = await fetchAnalysis(imageId);
+  
+  // Add last_checked_at from manifest
+  data.last_checked_at = manifest.last_checked_at;
+  
+  return data;
 }
 
 /**
@@ -230,8 +240,6 @@ export async function submitLabel(labelData) {
   const payload = buildLabelPayload(labelData);
 
   let response;
-  let rawBody = '';
-  let fetchError = null;
   try {
     response = await fetch(config.api.submitLabelUrl, {
       method: 'POST',
@@ -244,50 +252,24 @@ export async function submitLabel(labelData) {
       cache: 'no-store',
     });
   } catch (err) {
-    fetchError = err;
-  }
-
-  // If the network request threw (common when CORS blocks the response),
-  // treat it as an "unconfirmed" success when the user is online so we
-  // don't show a false failure even though the backend accepted the label.
-  if (!response) {
-    const isOnline = typeof navigator === 'undefined' ? true : navigator.onLine !== false;
-    const isLikelyCorsBlock = fetchError instanceof TypeError && isOnline;
-
-    if (isLikelyCorsBlock) {
-      console.warn('Label submission response was blocked (likely CORS), treating as unconfirmed success.', fetchError);
-      return { success: true, unconfirmed: true, message: 'Feedback submitted (response not confirmed).' };
-    }
-
-    throw new Error('We could not confirm your feedback. Please try again in a moment.');
-  }
-
-  try {
-    rawBody = await response.text();
-  } catch (err) {
-    rawBody = '';
+    console.error('Label submission network error:', err);
+    throw new Error('Unable to connect. Please check your internet and try again.');
   }
 
   let responseBody = null;
   try {
-    responseBody = rawBody ? JSON.parse(rawBody) : null;
+    responseBody = await response.json();
   } catch (err) {
-    // If the body isn't JSON, fall through and rely on status
+    // Non-JSON response
   }
 
-  const isOpaqueSuccess = response.type === 'opaque' && response.status === 0;
-  const isSuccess = response.ok || responseBody?.success === true || isOpaqueSuccess;
-  if (isSuccess) {
-    const base = responseBody || { success: true, message: 'Label recorded' };
-    return isOpaqueSuccess ? { ...base, unconfirmed: true } : base;
+  if (response.ok || responseBody?.success) {
+    return responseBody || { success: true, message: 'Label recorded' };
   }
 
-  const errorMessage =
-    responseBody?.error ||
-    responseBody?.message ||
-    response.statusText ||
-    'We could not submit your feedback right now. Please try again.';
-  throw new Error(errorMessage);
+  // Log the actual error for debugging, but show generic message to user
+  console.error('Label submission failed:', responseBody?.error || response.statusText);
+  throw new Error('Something went wrong. Please try again.');
 }
 
 /**

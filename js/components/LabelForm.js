@@ -215,15 +215,11 @@ export class LabelForm {
     }
 
     try {
-      const result = await submitLabel({
+      await submitLabel({
         imageId: this.currentImageId,
         frameState: this.selectedFrameState,
         visibility: this.selectedFrameState === 'good' ? this.selectedVisibility : null,
       });
-
-      if (result?.unconfirmed) {
-        console.warn('Label submission response was not confirmed (likely CORS), treating as success.');
-      }
 
       this.resetSelections();
       this.hasSuccessfulSubmission = true;
@@ -231,8 +227,7 @@ export class LabelForm {
       this.render(); // Re-render to hide form elements
     } catch (error) {
       console.error('Failed to submit correction:', error);
-      const message = error?.message || 'We could not submit your correction right now. Please try again in a moment.';
-      this.updateStatusMessage('error', message);
+      this.updateStatusMessage('error', error.message);
     } finally {
       this.isSubmitting = false;
       if (this.submitButton) {

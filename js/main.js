@@ -1,7 +1,7 @@
 // Main Entry Point for Home Page
 // Fetches latest data and renders the UI
 
-import { fetchLatest } from './lib/api.js';
+import { fetchLatest, buildImageId } from './lib/api.js';
 import { StatusDisplay } from './components/StatusDisplay.js';
 import { ImageViewer } from './components/ImageViewer.js';
 import { MetadataDisplay } from './components/MetadataDisplay.js';
@@ -68,11 +68,11 @@ async function init() {
     await loadLatestData();
   }, config.refreshInterval);
 
-  // Update "last updated" time every 10 seconds
+  // Update "last checked" time every 10 seconds
   setInterval(() => {
     const latestData = window.latestData;
-    if (latestData && latestData.updated_at) {
-      lastUpdatedSpan.textContent = formatRelativeTime(latestData.updated_at);
+    if (latestData && latestData.last_checked_at) {
+      lastUpdatedSpan.textContent = formatRelativeTime(latestData.last_checked_at);
     }
   }, 10000);
 }
@@ -111,7 +111,7 @@ function handleTimelineImageChange(data, timestamp) {
 }
 
 /**
- * Load latest data from API
+ * Load latest data from manifest + analysis
  */
 async function loadLatestData() {
   try {
@@ -144,10 +144,10 @@ async function loadLatestData() {
       labelForm.setTarget(data, timestamp);
     }
 
-    // Update last updated time
+    // Update last checked time
     const lastUpdatedSpan = document.getElementById('last-updated');
-    if (data.updated_at) {
-      lastUpdatedSpan.textContent = formatRelativeTime(data.updated_at);
+    if (data.last_checked_at) {
+      lastUpdatedSpan.textContent = formatRelativeTime(data.last_checked_at);
     }
 
     // Keep timeline captured display in sync when viewing latest
