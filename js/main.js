@@ -42,7 +42,7 @@ async function init() {
   const imageContainer = document.getElementById('image-viewer');
   const metadataContainer = document.getElementById('metadata-display');
   const labelFormContainer = document.getElementById('label-form-container');
-  const lastUpdatedSpan = document.getElementById('last-updated');
+  const lastCheckedSpan = document.getElementById('last-checked');
 
   // Create component instances
   statusDisplay = new StatusDisplay(statusContainer);
@@ -72,7 +72,7 @@ async function init() {
   setInterval(() => {
     const latestData = window.latestData;
     if (latestData && latestData.last_checked_at) {
-      lastUpdatedSpan.textContent = formatRelativeTime(latestData.last_checked_at);
+      lastCheckedSpan.textContent = formatRelativeTime(latestData.last_checked_at);
     }
   }, 10000);
 }
@@ -95,6 +95,8 @@ function handleTimelineImageChange(data, timestamp) {
   if (!timestamp) {
     isViewingLatest = true;
     statusDisplay.render(latestData);
+    // Clear navigation arrows when viewing latest
+    imageViewer.clearNavigationArrows();
   } else {
     isViewingLatest = false;
     statusDisplay.render(data);
@@ -135,6 +137,8 @@ async function loadLatestData() {
       if (imageChanged || !previousTimestamp) {
         imageViewer.render(data);
         metadataDisplay.render(data);
+        // Clear navigation arrows when viewing latest
+        imageViewer.clearNavigationArrows();
       }
     }
 
@@ -145,9 +149,9 @@ async function loadLatestData() {
     }
 
     // Update last checked time
-    const lastUpdatedSpan = document.getElementById('last-updated');
+    const lastCheckedSpan = document.getElementById('last-checked');
     if (data.last_checked_at) {
-      lastUpdatedSpan.textContent = formatRelativeTime(data.last_checked_at);
+      lastCheckedSpan.textContent = formatRelativeTime(data.last_checked_at);
     }
 
     // Keep timeline captured display in sync when viewing latest
@@ -178,6 +182,8 @@ window.addEventListener('timelineClose', () => {
       statusDisplay.render(latestData);
       imageViewer.render(latestData);
       metadataDisplay.render(latestData);
+      // Clear navigation arrows when returning to latest
+      imageViewer.clearNavigationArrows();
       ensureLabelForm();
       if (labelForm) {
         labelForm.setTarget(latestData, latestData.ts || latestData.timestamp);

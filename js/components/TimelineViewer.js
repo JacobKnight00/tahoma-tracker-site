@@ -32,6 +32,7 @@ export class TimelineViewer {
     
     this.initializeElements();
     this.setupEventListeners();
+    this.setupKeyboardNavigation();
     
     // Try to initialize calendar immediately, will work if container exists
     // Otherwise will be initialized when controls are first expanded
@@ -150,11 +151,32 @@ export class TimelineViewer {
       return this.dateStatusCache.get(cacheKey);
     }
     
-    // Asynchronously load monthly manifest and update cache
-    // This will cause the calendar to re-render when data arrives
+    // Check if monthly manifest is already cached (synchronous check)
     const year = date.getFullYear();
     const month = date.getMonth() + 1;
+    const monthKey = `${year}-${String(month).padStart(2, '0')}`;
     
+    if (this.monthlyManifestCache.has(monthKey)) {
+      const manifest = this.monthlyManifestCache.get(monthKey);
+      if (manifest && manifest.days) {
+        const dayStr = String(date.getDate()).padStart(2, '0');
+        const dayInfo = manifest.days[dayStr];
+        
+        let status = null;
+        if (!dayInfo || dayInfo.image_count === 0) {
+          status = 'no-images';
+        } else if (dayInfo.had_out) {
+          status = 'visible';
+        } else if (dayInfo.had_partially_out) {
+          status = 'partial';
+        }
+        
+        this.dateStatusCache.set(cacheKey, status);
+        return status;
+      }
+    }
+    
+    // Asynchronously load monthly manifest and update cache
     this.getMonthlyManifest(year, month).then(manifest => {
       if (!manifest || !manifest.days) return;
       
@@ -163,13 +185,12 @@ export class TimelineViewer {
       
       let status = null;
       if (!dayInfo || dayInfo.image_count === 0) {
-        status = 'no-images'; // No images for this day - grey out
+        status = 'no-images';
       } else if (dayInfo.had_out) {
-        status = 'visible'; // Mountain was out - green dot
+        status = 'visible';
       } else if (dayInfo.had_partially_out) {
-        status = 'partial'; // Partially visible - yellow dot
+        status = 'partial';
       }
-      // If has images but no visibility, status stays null (no dot, but clickable)
       
       this.dateStatusCache.set(cacheKey, status);
       
@@ -189,6 +210,68 @@ export class TimelineViewer {
     
     // Scrubber events
     this.setupScrubberEvents();
+  }
+
+  setupKeyboardNavigation() {
+    // Set up keyboard navigation
+    document.addEventListener('keydown', (e) => {
+      // Only handle arrow keys when not in an input field
+      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+      
+      if (e.key === 'ArrowLeft') {
+        e.preventDefault();
+        this.navigateToPrevious();
+      } else if (e.key === 'ArrowRight') {
+        e.preventDefault();
+        this.navigateToNext();
+      }
+    });
+
+    // Set up image viewer navigation callback
+    if (this.imageViewer) {
+      this.imageViewer.setNavigation((direction) => {
+        if (direction === 'prev') {
+          this.navigateToPrevious();
+        } else if (direction === 'next') {
+          this.navigateToNext();
+        }
+      });
+    }
+  }
+
+  /**
+   * Navigate to previous image in current day
+   */
+  navigateToPrevious() {
+    if (this.isLoading || this.frames.length === 0) return;
+    
+    if (this.currentFrameIndex > 0) {
+      this.currentFrameIndex--;
+      this.updateView({ skipLoadingState: true });
+    }
+  }
+
+  /**
+   * Navigate to next image in current day
+   */
+  navigateToNext() {
+    if (this.isLoading || this.frames.length === 0) return;
+    
+    if (this.currentFrameIndex < this.frames.length - 1) {
+      this.currentFrameIndex++;
+      this.updateView({ skipLoadingState: true });
+    }
+  }
+
+  /**
+   * Update navigation state for image viewer arrows
+   */
+  updateNavigationState() {
+    if (this.imageViewer) {
+      const hasPrev = this.currentFrameIndex > 0;
+      const hasNext = this.currentFrameIndex < this.frames.length - 1;
+      this.imageViewer.updateNavigationArrows({ hasPrev, hasNext });
+    }
   }
   
   setupScrubberEvents() {
@@ -616,12 +699,18 @@ export class TimelineViewer {
     // Update scrubber
     this.updateScrubberPosition();
     
+    // Update navigation state for image viewer arrows
+    this.updateNavigationState();
+    
     // Update stats display
     this.updateStatsDisplay();
     
     // Use skipLoadingState for smooth scrubbing, but show loading for date changes
     const skipLoading = options.skipLoadingState !== false;
     this.imageViewer.renderUrl(imageUrl, `Mt. Rainier at ${formatTime(currentFrame)}`, skipLoading);
+    
+    // Update navigation state after image is rendered
+    setTimeout(() => this.updateNavigationState(), 0);
     
     // Use latest data if frame matches latest timestamp
     const latestData = window.latestData;
@@ -661,9 +750,9 @@ export class TimelineViewer {
       this.togglePlay();
     }
 
-    // Show placeholder when changing days (not on initial load with render: false)
+    // Show loading state when changing days (keep current image greyed out)
     if (options.render) {
-      this.imageViewer.showPlaceholder();
+      this.imageViewer.showLoadingWithCurrentImage();
     }
     
     this.imageCache.clear();
@@ -703,6 +792,9 @@ export class TimelineViewer {
         // Update scrubber position
         this.updateScrubberPosition();
         
+        // Update navigation state
+        this.updateNavigationState();
+        
         if (this.timeDisplay) {
           this.timeDisplay.textContent = formatTime(this.frames[this.currentFrameIndex]);
         }
@@ -711,6 +803,9 @@ export class TimelineViewer {
         if (options.render) {
           console.log('Rendering view after loading frames, frame count:', this.frames.length);
           await this.updateView({ skipLoadingState: false });
+        } else {
+          // Still need to update navigation state even if not rendering
+          this.updateNavigationState();
         }
       }
     } catch (error) {

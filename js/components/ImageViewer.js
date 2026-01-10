@@ -7,13 +7,66 @@ import { createElement, clearElement } from '../utils/dom.js';
 export class ImageViewer {
   constructor(containerElement) {
     this.container = containerElement;
+    this.onNavigate = null; // Callback for navigation events
   }
 
   /**
-   * Render loading state
+   * Set navigation callback and state
+   * @param {Function} callback - Function to call for navigation (direction: 'prev' | 'next')
+   * @param {Object} state - Navigation state { hasPrev: boolean, hasNext: boolean }
    */
+  setNavigation(callback, state = { hasPrev: false, hasNext: false }) {
+    this.onNavigate = callback;
+    this.updateNavigationArrows(state);
+  }
+
+  /**
+   * Update navigation arrow visibility
+   * @param {Object} state - Navigation state { hasPrev: boolean, hasNext: boolean }
+   */
+  updateNavigationArrows(state) {
+    const wrapper = this.container.querySelector('.image-viewer__wrapper');
+    if (!wrapper) return;
+
+    // Remove existing arrows
+    wrapper.querySelectorAll('.image-viewer__nav-arrow').forEach(arrow => arrow.remove());
+
+    // Add new arrows if navigation is available
+    if (state.hasPrev) {
+      const prevArrow = createElement('button', {
+        class: 'image-viewer__nav-arrow image-viewer__nav-arrow--prev',
+        'aria-label': 'Previous image'
+      });
+      prevArrow.innerHTML = '‹';
+      prevArrow.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (this.onNavigate) this.onNavigate('prev');
+      });
+      wrapper.appendChild(prevArrow);
+    }
+
+    if (state.hasNext) {
+      const nextArrow = createElement('button', {
+        class: 'image-viewer__nav-arrow image-viewer__nav-arrow--next',
+        'aria-label': 'Next image'
+      });
+      nextArrow.innerHTML = '›';
+      nextArrow.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (this.onNavigate) this.onNavigate('next');
+      });
+      wrapper.appendChild(nextArrow);
+    }
+  }
+
+  /**
+   * Clear navigation arrows
+   */
+  clearNavigationArrows() {
+    this.updateNavigationArrows({ hasPrev: false, hasNext: false });
+  }
   renderLoading() {
-    this.showPlaceholder();
+    this.showInitialLoading();
   }
 
   /**
@@ -26,6 +79,51 @@ export class ImageViewer {
         <p>${message}</p>
       </div>
     `;
+  }
+
+  /**
+   * Show initial loading state (grey box with spinner)
+   */
+  showInitialLoading() {
+    clearElement(this.container);
+    const wrapper = createElement('div', { class: 'image-viewer__wrapper image-viewer__wrapper--initial-loading' });
+    const spinner = createElement('div', { class: 'image-viewer__spinner' });
+    wrapper.appendChild(spinner);
+    this.container.appendChild(wrapper);
+  }
+
+  /**
+   * Show loading state while keeping current image greyed out
+   */
+  showLoadingWithCurrentImage() {
+    let wrapper = this.container.querySelector('.image-viewer__wrapper');
+    if (!wrapper) {
+      // No current image, fall back to initial loading
+      this.showInitialLoading();
+      return;
+    }
+
+    // Clear navigation arrows during loading
+    this.clearNavigationArrows();
+
+    // Add loading overlay and spinner to existing wrapper
+    const existingOverlay = wrapper.querySelector('.image-viewer__loading-overlay');
+    if (!existingOverlay) {
+      const overlay = createElement('div', { class: 'image-viewer__loading-overlay' });
+      const spinner = createElement('div', { class: 'image-viewer__spinner' });
+      overlay.appendChild(spinner);
+      wrapper.appendChild(overlay);
+    }
+  }
+
+  /**
+   * Remove loading overlay (used when new image loads)
+   */
+  removeLoadingOverlay() {
+    const overlay = this.container.querySelector('.image-viewer__loading-overlay');
+    if (overlay) {
+      overlay.remove();
+    }
   }
 
   /**
@@ -87,9 +185,10 @@ export class ImageViewer {
     });
 
     img.addEventListener('load', () => {
-      // Remove spinner
+      // Remove spinner and loading overlay
       const spinner = wrapper.querySelector('.image-viewer__spinner');
       if (spinner) spinner.remove();
+      this.removeLoadingOverlay();
       img.classList.remove('image-viewer__img--loading');
     });
 
@@ -131,10 +230,11 @@ export class ImageViewer {
     });
 
     img.addEventListener('load', () => {
-      // Remove spinner and other images
+      // Remove spinner, loading overlay, and other images
       wrapper.querySelectorAll('.image-viewer__spinner, img').forEach(el => {
         if (el !== img) el.remove();
       });
+      this.removeLoadingOverlay();
       img.classList.remove('image-viewer__img--loading');
     });
 

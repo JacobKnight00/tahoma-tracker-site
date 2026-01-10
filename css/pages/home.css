@@ -331,6 +331,48 @@
   aspect-ratio: 16 / 9;
 }
 
+/* Navigation arrows */
+.image-viewer__nav-arrow {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: clamp(32px, 6vw + 0.5rem, 40px);
+  height: clamp(32px, 6vw + 0.5rem, 40px);
+  background: rgba(0, 0, 0, 0.6);
+  color: white;
+  border: none;
+  border-radius: 50%;
+  font-size: clamp(16px, 3vw + 0.3rem, 20px);
+  font-weight: bold;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0.7;
+  transition: all 0.2s ease;
+  z-index: 20;
+  user-select: none;
+}
+
+.image-viewer__nav-arrow:hover {
+  opacity: 1;
+  background: rgba(0, 0, 0, 0.8);
+  transform: translateY(-50%) scale(1.1);
+}
+
+.image-viewer__nav-arrow--prev {
+  left: clamp(8px, 2vw + 0.2rem, 12px);
+}
+
+.image-viewer__nav-arrow--next {
+  right: clamp(8px, 2vw + 0.2rem, 12px);
+}
+
+/* Initial loading state - grey box instead of placeholder image */
+.image-viewer__wrapper--initial-loading {
+  background: var(--color-gray-200);
+}
+
 .image-viewer__wrapper::after {
   content: '';
   position: absolute;
@@ -338,6 +380,17 @@
   background: rgba(255, 255, 255, 0.7);
   pointer-events: none;
   z-index: 0;
+}
+
+/* Loading overlay for day changes - greys out current image */
+.image-viewer__loading-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(255, 255, 255, 0.8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10;
 }
 
 .image-viewer__spinner {
@@ -349,6 +402,11 @@
   border-top-color: var(--color-primary);
   border-radius: 50%;
   animation: spin 1s linear infinite;
+}
+
+/* Spinner inside loading overlay */
+.image-viewer__loading-overlay .image-viewer__spinner {
+  position: static; /* Let flexbox center it */
 }
 
 @keyframes spin {
@@ -1220,6 +1278,32 @@
   display: inline-block;
   position: relative;
   z-index: 10000;
+}
+
+/* Calendar Skip Notification */
+.calendar-skip-notification {
+  position: fixed;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%) translateY(-20px);
+  background: var(--color-nps-brown);
+  color: var(--color-white);
+  padding: var(--space-sm) var(--space-lg);
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  z-index: 10000;
+  opacity: 0;
+  transition: all 0.3s ease;
+  pointer-events: none;
+  max-width: 90vw;
+  text-align: center;
+}
+
+.calendar-skip-notification--show {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
 }
 
 /* Animations */

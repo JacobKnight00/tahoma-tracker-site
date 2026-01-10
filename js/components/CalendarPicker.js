@@ -140,15 +140,67 @@ export class CalendarPicker {
   }
   
   /**
-   * Navigate days using arrow buttons
+   * Show notification when days are skipped
+   */
+  showSkipNotification(fromDate, toDate, direction) {
+    const formatDate = (date) => {
+      const month = date.toLocaleDateString('en-US', { month: 'short' });
+      const day = date.getDate();
+      return `${month} ${day}`;
+    };
+    
+    const message = `Skipped from ${formatDate(fromDate)} to ${formatDate(toDate)} (no images available)`;
+    
+    // Create notification element
+    const notification = document.createElement('div');
+    notification.className = 'calendar-skip-notification';
+    notification.textContent = message;
+    
+    // Add to body
+    document.body.appendChild(notification);
+    
+    // Animate in
+    setTimeout(() => notification.classList.add('calendar-skip-notification--show'), 10);
+    
+    // Remove after 3 seconds
+    setTimeout(() => {
+      notification.classList.remove('calendar-skip-notification--show');
+      setTimeout(() => notification.remove(), 300);
+    }, 3000);
+  }
+
+  /**
+   * Navigate days using arrow buttons - skip days without images
    */
   navigateDay(delta) {
-    const newDate = new Date(this.selectedDate);
-    newDate.setDate(newDate.getDate() + delta);
+    const originalDate = new Date(this.selectedDate);
+    let newDate = new Date(this.selectedDate);
+    let attempts = 0;
+    const maxAttempts = 30;
     
-    if (this.isDateInRange(newDate)) {
-      this.selectDate(newDate);
+    while (attempts < maxAttempts) {
+      newDate.setDate(newDate.getDate() + delta);
+      attempts++;
+      
+      if (!this.isDateInRange(newDate)) {
+        return; // Can't navigate further
+      }
+      
+      const dateStatus = this.getDateStatus(newDate);
+      
+      // If status is 'no-images', keep looking
+      // If status is anything else (including null/unknown), use this date
+      if (dateStatus !== 'no-images') {
+        break;
+      }
     }
+    
+    // Show notification if we skipped days
+    if (attempts > 1) {
+      this.showSkipNotification(originalDate, newDate, delta > 0 ? 'next' : 'previous');
+    }
+    
+    this.selectDate(newDate);
   }
   
   /**
