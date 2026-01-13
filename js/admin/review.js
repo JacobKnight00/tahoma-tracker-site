@@ -18,14 +18,6 @@ let keyboard;
  * Initialize the review page
  */
 async function init() {
-  // Check auth
-  const token = localStorage.getItem('adminToken');
-  if (!token) {
-    alert('Admin access required.');
-    window.location.href = '/admin/label.html';
-    return;
-  }
-
   // Initialize components
   imageViewer = new ImageViewer(document.getElementById('review-image-viewer'));
   keyboard = createKeyboardShortcuts();

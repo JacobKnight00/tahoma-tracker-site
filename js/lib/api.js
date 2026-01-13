@@ -1,13 +1,48 @@
 // API Client
 // Handles all API requests to the backend
 
-import { config, getAdminToken } from '../../config/config.js';
+import { config } from '../../config/config.js';
 
 // Track the current analysis path version (default to config)
 const DEFAULT_ANALYSIS_VERSION = config.analysisVersion || 'v1';
 let cachedAnalysisVersion = DEFAULT_ANALYSIS_VERSION;
 
 const IMAGE_ID_REGEX = /^(\d{4})\/(\d{2})\/(\d{2})\/(\d{2})(\d{2})$/;
+
+// ---------------------------------------------------------------------------
+// Error Handling
+// ---------------------------------------------------------------------------
+
+function handleApiError(err, userMessage) {
+  console.error('API network error:', err);
+  throw new Error(userMessage);
+}
+
+async function handleApiResponse(response, successMessage, processedCount = null) {
+  let responseBody = null;
+  try {
+    responseBody = await response.json();
+    console.log('Response body:', responseBody); // Debug log
+  } catch (err) {
+    console.log('Non-JSON response, status:', response.status); // Debug log
+  }
+
+  if (response.ok || responseBody?.success) {
+    const defaultResponse = processedCount !== null 
+      ? { success: true, processed: processedCount, failed: 0 }
+      : { success: true, message: successMessage };
+    return responseBody || defaultResponse;
+  }
+
+  console.error('API request failed:', {
+    status: response.status,
+    statusText: response.statusText,
+    body: responseBody
+  });
+  
+  const errorMessage = responseBody?.error || responseBody?.message || response.statusText || 'Something went wrong. Please try again.';
+  throw new Error(errorMessage);
+}
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -178,7 +213,12 @@ function normalizeData(raw = {}) {
 
 function buildLabelPayload(labelData = {}) {
   const frameState = labelData.frameState || labelData.frame_state;
-  const visibility = labelData.visibility ?? labelData.visibility_label ?? null;
+  let visibility = labelData.visibility ?? labelData.visibility_label ?? null;
+
+  // Map frontend visibility values to backend expected values
+  if (visibility === 'partial') {
+    visibility = 'partially_out';
+  }
 
   const imageId = resolveImageId(labelData);
 
@@ -245,31 +285,16 @@ export async function submitLabel(labelData) {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        ...(getAdminToken() && { 'Authorization': `Bearer ${getAdminToken()}` }),
       },
       body: JSON.stringify(payload),
       mode: 'cors',
       cache: 'no-store',
     });
   } catch (err) {
-    console.error('Label submission network error:', err);
-    throw new Error('Unable to connect. Please check your internet and try again.');
+    return handleApiError(err, 'Unable to connect. Please check your internet and try again.');
   }
 
-  let responseBody = null;
-  try {
-    responseBody = await response.json();
-  } catch (err) {
-    // Non-JSON response
-  }
-
-  if (response.ok || responseBody?.success) {
-    return responseBody || { success: true, message: 'Label recorded' };
-  }
-
-  // Log the actual error for debugging, but show generic message to user
-  console.error('Label submission failed:', responseBody?.error || response.statusText);
-  throw new Error('Something went wrong. Please try again.');
+  return handleApiResponse(response, 'Label recorded');
 }
 
 /**
@@ -281,11 +306,7 @@ export async function fetchUnlabeled(limit = 100) {
   const url = new URL(config.api.unlabeledUrl, window.location.origin);
   url.searchParams.set('limit', limit);
 
-  const response = await fetch(url.toString(), {
-    headers: {
-      ...(getAdminToken() && { 'Authorization': `Bearer ${getAdminToken()}` }),
-    },
-  });
+  const response = await fetch(url.toString());
 
   if (!response.ok) {
     throw new Error(`Failed to fetch unlabeled images: ${response.statusText}`);
@@ -305,17 +326,81 @@ export async function fetchLabels(startDate, endDate) {
   url.searchParams.set('start_date', startDate);
   url.searchParams.set('end_date', endDate);
 
-  const response = await fetch(url.toString(), {
-    headers: {
-      'Authorization': `Bearer ${getAdminToken()}`,
-    },
-  });
+  const response = await fetch(url.toString());
 
   if (!response.ok) {
     throw new Error(`Failed to fetch labels: ${response.statusText}`);
   }
 
   return response.json();
+}
+
+/**
+ * Fetch admin labels for a date range with filtering options
+ * @param {string} startDate - Start date (YYYY-MM-DD)
+ * @param {string} endDate - End date (YYYY-MM-DD)
+ * @param {Object} options - Filtering options
+ * @param {string} options.excludeLabeled - "admin", "crowd", "any", "none"
+ * @param {string} options.labelSource - "admin", "crowd"
+ * @returns {Promise<Object>} Response with labels array and count
+ */
+export async function fetchAdminLabels(startDate, endDate, options = {}) {
+  const url = new URL(config.api.adminLabelsUrl);
+  url.searchParams.set('startDate', startDate);
+  url.searchParams.set('endDate', endDate);
+  
+  if (options.excludeLabeled) {
+    url.searchParams.set('excludeLabeled', options.excludeLabeled);
+  }
+  if (options.labelSource) {
+    url.searchParams.set('labelSource', options.labelSource);
+  }
+
+  const response = await fetch(url.toString());
+
+  if (!response.ok) {
+    throw new Error(`Failed to fetch admin labels: ${response.statusText}`);
+  }
+
+  return response.json();
+}
+
+/**
+ * Submit multiple labels in a batch
+ * @param {Array} labels - Array of label objects
+ * @param {Object} options - Batch options
+ * @param {string} options.updatedBy - User identifier
+ * @returns {Promise<Object>} Batch submission response
+ */
+export async function submitLabelBatch(labels, options = {}) {
+  const payload = {
+    labels: labels.map(label => buildLabelPayload(label)),
+    updatedBy: options.updatedBy || 'admin_user',
+  };
+
+  console.log('Submitting batch:', payload); // Debug log
+
+  let response;
+  try {
+    response = await fetch(config.api.adminBatchUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload),
+      mode: 'cors',
+      cache: 'no-store',
+    });
+    
+    console.log('Response status:', response.status); // Debug log
+    console.log('Response headers:', Object.fromEntries(response.headers.entries())); // Debug log
+    
+  } catch (err) {
+    console.error('Network error:', err); // Debug log
+    return handleApiError(err, 'Unable to connect. Please check your internet and try again.');
+  }
+
+  return handleApiResponse(response, 'Batch submission completed', labels.length);
 }
 
 /**

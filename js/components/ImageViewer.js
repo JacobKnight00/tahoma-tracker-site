@@ -201,12 +201,13 @@ export class ImageViewer {
   }
 
   /**
-   * Render image from URL directly
+   * Render image from URL directly with optional cache check
    * @param {string} url - Image URL
    * @param {string} altText - Alt text
    * @param {boolean} skipLoadingState - Skip the loading opacity effect for quick transitions
+   * @param {Image} cachedImage - Optional pre-loaded image element
    */
-  renderUrl(url, altText = 'Webcam image', skipLoadingState = false) {
+  renderUrl(url, altText = 'Webcam image', skipLoadingState = false, cachedImage = null) {
     // Reuse existing wrapper or create new one
     let wrapper = this.container.querySelector('.image-viewer__wrapper');
     if (!wrapper) {
@@ -220,8 +221,21 @@ export class ImageViewer {
       wrapper.innerHTML = '';
     }
 
-    const existingImg = wrapper.querySelector('img');
-    
+    // Use cached image if available
+    if (cachedImage && cachedImage.complete) {
+      const img = createElement('img', {
+        class: 'image-viewer__img',
+        src: url,
+        alt: altText,
+      });
+      
+      // Remove spinner and other images
+      wrapper.querySelectorAll('.image-viewer__spinner, img').forEach(el => el.remove());
+      this.removeLoadingOverlay();
+      wrapper.appendChild(img);
+      return;
+    }
+
     const img = createElement('img', {
       class: skipLoadingState ? 'image-viewer__img' : 'image-viewer__img image-viewer__img--loading',
       src: url,

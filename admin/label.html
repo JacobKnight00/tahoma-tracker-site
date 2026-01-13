@@ -23,108 +23,166 @@
     <header class="admin-header">
       <h1 class="admin-header__title">Rapid Labeling</h1>
       <div class="admin-header__controls">
-        <button id="mode-toggle" class="button button--secondary" aria-label="Toggle navigation mode">
-          Mode: <span id="current-mode">Queue</span>
-        </button>
         <a href="/" class="button button--ghost">Back to Home</a>
       </div>
     </header>
 
     <div class="admin-layout">
-      <!-- Left: Image Display -->
-      <div class="admin-layout__image">
-        <div id="admin-image-viewer" class="admin-image-viewer">
-          <div class="admin-image-viewer__loading">
-            <div class="spinner"></div>
-            <p>Loading image...</p>
+      <!-- Main Content -->
+      <div class="admin-layout__main">
+        <!-- Compact Filter Panel -->
+        <div class="filter-panel">
+          <div class="filter-panel__primary">
+            <div class="filter-group filter-group--dates">
+              <input type="date" id="start-date" class="input input--compact">
+              <span class="filter-separator">to</span>
+              <input type="date" id="end-date" class="input input--compact">
+            </div>
+            <button id="apply-filters" class="button button--primary">Apply</button>
+          </div>
+          
+          <details class="filter-details">
+            <summary class="filter-summary">Advanced Filters</summary>
+            <div class="filter-panel__advanced">
+              <div class="filter-group">
+                <label>Confidence threshold: 
+                  <span class="tooltip" title="Show images with AI confidence LESS than this threshold. When 'Good frames only' is checked, uses visibility confidence. Otherwise uses the lowest confidence between frame state and visibility predictions.">ℹ️</span>
+                  <input type="range" id="confidence-threshold" min="50" max="100" value="80" class="input--range">
+                  <span id="confidence-value">80</span>%
+                </label>
+              </div>
+              
+              <div class="filter-group">
+                <label>Hide already labeled:
+                  <span class="tooltip" title="Choose which labeled images to hide from the queue. 'Hide any labeled' will only show completely unlabeled images.">ℹ️</span>
+                  <select id="exclude-labeled" class="input input--compact">
+                    <option value="none">Show all images</option>
+                    <option value="admin">Hide admin labeled</option>
+                    <option value="crowd">Hide crowd labeled</option>
+                    <option value="any">Hide any labeled</option>
+                  </select>
+                </label>
+              </div>
+              
+              <div class="filter-group filter-group--checkboxes">
+                <label><input type="checkbox" id="good-frames-only"> Good frames only</label>
+                <label>
+                  <input type="checkbox" id="disagreements-only"> Disagreements only
+                  <span class="tooltip" title="Show only images where AI predictions disagree with existing manual labels (different frame state or visibility classifications).">ℹ️</span>
+                </label>
+              </div>
+            </div>
+          </details>
+        </div>
+
+        <!-- Image Display with Navigation -->
+        <div class="image-section">
+          <div id="admin-image-viewer" class="admin-image-viewer">
+            <div class="admin-image-viewer__loading">
+              <div class="spinner"></div>
+              <p>Select date range and apply filters to start labeling</p>
+            </div>
+            
+            <!-- Analysis Overlay -->
+            <div class="analysis-overlay" id="analysis-overlay" style="display: none;">
+              <div class="analysis-overlay__content">
+                <div class="analysis-line" id="prediction-line"></div>
+                <div class="analysis-line" id="manual-line"></div>
+              </div>
+            </div>
           </div>
         </div>
 
-        <!-- Image Info -->
-        <div id="image-info" class="image-info">
-          <span class="image-info__item">
-            <strong>ID:</strong> <span id="image-id">--</span>
-          </span>
-          <span class="image-info__item">
-            <strong>Time:</strong> <span id="image-time">--</span>
-          </span>
+        <!-- Compact Image Context -->
+        <div id="image-context" class="image-context image-context--compact">
+          <div class="image-context__header">
+            <div class="image-context__info">
+              <span><strong>ID:</strong> <span id="image-id">--</span></span>
+              <span><strong>Time:</strong> <span id="image-time">--</span></span>
+            </div>
+            <div class="progress-compact">
+              <span id="progress-text">0 of 0 images</span>
+              <div class="progress-bar progress-bar--small">
+                <div class="progress-fill" id="progress-fill" style="width: 0%"></div>
+              </div>
+            </div>
+          </div>
+          
+          <details class="context-details">
+            <summary class="context-summary">Analysis & Labels</summary>
+            <div class="context-content">
+              <div class="image-context__section">
+                <h4>AI Analysis:</h4>
+                <div class="image-context__predictions" id="analysis-predictions"></div>
+              </div>
+              
+              <div class="image-context__section">
+                <h4>Manual Labels:</h4>
+                <div class="image-context__predictions" id="human-labels"></div>
+              </div>
+              
+              <div class="image-context__section" id="disagreement-section" style="display: none;">
+                <h4>⚠️ Disagreement:</h4>
+                <div class="image-context__predictions" id="disagreement-info"></div>
+              </div>
+            </div>
+          </details>
         </div>
       </div>
 
-      <!-- Right: Controls -->
+      <!-- Compact Controls Sidebar -->
       <div class="admin-layout__controls">
-        <!-- Current Labels (Pills) -->
-        <div class="label-pills" id="label-pills">
-          <span class="pill pill--frame" id="pill-frame-state">Frame: --</span>
-          <span class="pill pill--visibility" id="pill-visibility">Visibility: --</span>
-        </div>
-
         <!-- Frame State Controls -->
-        <div class="control-group">
-          <h2 class="control-group__title">Frame State</h2>
-          <div class="button-grid">
-            <button data-action="label-frame" data-value="good" class="button button--large">
-              <kbd>G</kbd> Good
+        <div class="control-group control-group--compact">
+          <h3>Frame State</h3>
+          <div class="button-grid--compact">
+            <button data-action="label-frame" data-value="good" class="button button--control">
+              <kbd>G</kbd> <span class="mobile-text">Good</span>
             </button>
-            <button data-action="label-frame" data-value="off_target" class="button button--large">
-              <kbd>F</kbd> Out of Frame
+            <button data-action="label-frame" data-value="off_target" class="button button--control">
+              <kbd>F</kbd> <span class="mobile-text">Off Target</span>
             </button>
-            <button data-action="label-frame" data-value="dark" class="button button--large">
-              <kbd>D</kbd> Dark
+            <button data-action="label-frame" data-value="dark" class="button button--control">
+              <kbd>D</kbd> <span class="mobile-text">Dark</span>
             </button>
-            <button data-action="label-frame" data-value="bad" class="button button--large">
-              <kbd>B</kbd> Bad or Blurry
-            </button>
-          </div>
-        </div>
-
-        <!-- Visibility Controls (only enabled if frame=good) -->
-        <div class="control-group">
-          <h2 class="control-group__title">Visibility</h2>
-          <div class="button-grid">
-            <button data-action="label-visibility" data-value="out" class="button button--large" disabled>
-              <kbd>O</kbd> Out
-            </button>
-            <button data-action="label-visibility" data-value="partial" class="button button--large" disabled>
-              <kbd>P</kbd> Partial
-            </button>
-            <button data-action="label-visibility" data-value="not_out" class="button button--large" disabled>
-              <kbd>N</kbd> Not Out
+            <button data-action="label-frame" data-value="bad" class="button button--control">
+              <kbd>B</kbd> <span class="mobile-text">Bad</span>
             </button>
           </div>
         </div>
 
-        <!-- Navigation Controls -->
-        <div class="control-group">
-          <h2 class="control-group__title">Navigation</h2>
-          <div class="button-grid">
-            <button data-action="nav-prev" class="button button--secondary">
-              <kbd>←</kbd> Previous
+        <!-- Visibility Controls -->
+        <div class="control-group control-group--compact">
+          <h3>Visibility</h3>
+          <div class="button-grid--compact">
+            <button data-action="label-visibility" data-value="out" class="button button--control" disabled>
+              <kbd>O</kbd> <span class="mobile-text">Out</span>
             </button>
-            <button data-action="nav-next" class="button button--secondary">
-              <kbd>→</kbd> Next
+            <button data-action="label-visibility" data-value="partial" class="button button--control" disabled>
+              <kbd>P</kbd> <span class="mobile-text">Partial</span>
             </button>
-            <button data-action="nav-next-unlabeled" class="button button--primary">
-              <kbd>Space</kbd> Next Unlabeled
+            <button data-action="label-visibility" data-value="not_out" class="button button--control" disabled>
+              <kbd>N</kbd> <span class="mobile-text">Not Out</span>
             </button>
           </div>
         </div>
 
-        <!-- Date/Time Picker -->
-        <div class="control-group">
-          <h2 class="control-group__title">Jump to Date/Time</h2>
-          <div class="datetime-picker">
-            <input type="date" id="date-picker" class="input" min="2025-01-01">
-            <input type="time" id="time-picker" class="input" step="600">
-            <button data-action="jump-to-datetime" class="button button--secondary">Go</button>
+        <!-- Navigation & Batch -->
+        <div class="control-group control-group--compact">
+          <h3>Actions</h3>
+          <div class="button-grid--actions">
+            <button data-action="submit-batch" class="button button--primary button--small" disabled>
+              <span class="mobile-text">Submit (</span><span id="batch-count">0</span><span class="mobile-text">)</span>
+            </button>
           </div>
+          <div class="batch-status" id="batch-status">Batch: 0 pending (auto-submits at 10)</div>
         </div>
       </div>
     </div>
   </div>
 
   <!-- Keyboard Shortcut Help (Optional) -->
-  <div id="help-overlay" class="help-overlay" hidden>
+  <!-- <div id="help-overlay" class="help-overlay" hidden>
     <div class="help-overlay__content">
       <h2>Keyboard Shortcuts</h2>
       <ul>
@@ -142,7 +200,7 @@
       </ul>
       <button data-action="close-help" class="button button--primary">Close</button>
     </div>
-  </div>
+  </div> -->
 
   <!-- JavaScript -->
   <script type="module" src="/js/admin/label.js"></script>

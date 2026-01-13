@@ -12,6 +12,10 @@ export const config = {
 
     // Get labels (admin only)
     labelsUrl: '/api/labels',
+
+    // Admin endpoints
+    adminLabelsUrl: 'https://gjpbpt7mmhzphwhrhjdla2qsxm0zgtjn.lambda-url.us-west-2.on.aws/',
+    adminBatchUrl: 'https://gjpbpt7mmhzphwhrhjdla2qsxm0zgtjn.lambda-url.us-west-2.on.aws/batch',
   },
 
   // S3/CDN base URL for images
@@ -33,29 +37,4 @@ export const config = {
 
   // Auto-refresh interval (milliseconds)
   refreshInterval: 60000, // 60 seconds
-
-  // Admin authentication (simple token-based for now)
-  // In production, this would be in environment variables
-  adminToken: null, // Will check URL params or localStorage
 };
-
-// Get admin token from URL params or localStorage
-export function getAdminToken() {
-  // Check URL params
-  const urlParams = new URLSearchParams(window.location.search);
-  const urlToken = urlParams.get('token');
-
-  if (urlToken) {
-    // Store in localStorage for future visits
-    localStorage.setItem('adminToken', urlToken);
-    return urlToken;
-  }
-
-  // Check localStorage
-  return localStorage.getItem('adminToken');
-}
-
-// Check if user is authenticated as admin
-export function isAdmin() {
-  return !!getAdminToken();
-}
