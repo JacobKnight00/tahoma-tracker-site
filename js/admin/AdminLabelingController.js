@@ -59,7 +59,7 @@ export class AdminLabelingController {
       startDate: null,
       endDate: null,
       excludeLabeled: 'none',
-      confidenceThreshold: 80,
+      confidenceThreshold: 100,
       goodFramesOnly: false,
       disagreementsOnly: false,
     };
@@ -93,39 +93,28 @@ export class AdminLabelingController {
   }
 
   /**
-   * Load manifest and analysis data for a specific date (initial load only)
+   * Load manifest for a specific date
    */
   async loadManifestForDate(dateStr) {
     try {
       const manifest = await fetchDailyManifest(dateStr);
       this.dataStore.setManifest(dateStr, manifest);
-      
-      // Only load analysis for first 5 images initially
-      const imagesToPreload = manifest.images.slice(0, 5);
-      const analysisPromises = imagesToPreload.map(async (img) => {
-        const imageId = `${dateStr.replace(/-/g, '/')}/${img.time}`;
-        return this.ensureAnalysisLoaded(imageId);
-      });
-      
-      await Promise.allSettled(analysisPromises);
     } catch (err) {
       console.warn(`Failed to load manifest for ${dateStr}:`, err);
     }
   }
 
   /**
-   * Preload nearby images and analysis (called on navigation)
+   * Preload nearby images (called on navigation)
    */
   async preloadNearbyContent() {
     const current = this.currentIndex;
     const lookAhead = 5;
     
-    // Preload next 5 images and analysis
+    // Preload next 5 images
     for (let i = current; i < Math.min(current + lookAhead, this.filteredImages.length); i++) {
       const img = this.filteredImages[i];
       if (img) {
-        // Preload analysis
-        this.ensureAnalysisLoaded(img.imageId);
         // Preload image
         this.preloadImage(img.imageId);
       }
@@ -199,14 +188,18 @@ export class AdminLabelingController {
     for (const [dateStr, manifest] of this.dataStore.getAllManifests()) {
       manifest.images.forEach(img => {
         const imageId = `${dateStr.replace(/-/g, '/')}/${img.time}`;
-        const analysis = this.dataStore.getAnalysis(imageId);
         const existingLabel = this.dataStore.getLabel(imageId);
         
         allImages.push({
           imageId,
           time: img.time,
           date: dateStr,
-          analysis,
+          analysis: {
+            frame_state: img.frame_state,
+            frame_state_probability: img.frame_state_prob,
+            visibility: img.visibility,
+            visibility_prob: img.visibility_prob
+          },
           existingLabel,
         });
       });
@@ -221,7 +214,31 @@ export class AdminLabelingController {
         if (this.filters.excludeLabeled === 'crowd' && img.existingLabel.labelSource === 'crowd') return false;
       }
       
-      // For filters requiring analysis, we'll check on-demand
+      // Good frames only filter
+      if (this.filters.goodFramesOnly) {
+        if (img.analysis.frame_state !== 'good') return false;
+      }
+      
+      // Confidence threshold filter (corrected logic)
+      if (this.filters.confidenceThreshold < 100) {
+        const frameStateConf = (img.analysis.frame_state_probability || 0) * 100;
+        
+        if (img.analysis.frame_state === 'good' && img.analysis.visibility_prob != null) {
+          // For good frames, use the lower of frame state and visibility confidence
+          const visibilityConf = img.analysis.visibility_prob * 100;
+          const minConfidence = Math.min(frameStateConf, visibilityConf);
+          if (minConfidence >= this.filters.confidenceThreshold) return false;
+        } else {
+          // For non-good frames, use frame state confidence only
+          if (frameStateConf >= this.filters.confidenceThreshold) return false;
+        }
+      }
+      
+      // Disagreements only filter
+      if (this.filters.disagreementsOnly) {
+        if (!this.detectDisagreement(img)) return false;
+      }
+      
       return true;
     });
     

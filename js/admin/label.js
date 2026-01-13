@@ -198,10 +198,6 @@ async function handleImageChange(imageData) {
     if (direction === 'prev') controller.navigatePrevious();
   }, { hasNext, hasPrev });
 
-  // Ensure analysis is loaded before updating context
-  await controller.ensureAnalysisLoaded(imageData.imageId);
-  imageData.analysis = controller.dataStore.getAnalysis(imageData.imageId);
-
   // Update image context
   updateImageContext(imageData);
 
