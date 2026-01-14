@@ -59,7 +59,8 @@ export class AdminLabelingController {
       startDate: null,
       endDate: null,
       labelSource: 'none',
-      confidenceThreshold: 100,
+      frameConfidenceThreshold: 100,
+      visibilityConfidenceThreshold: 100,
       frameStates: new Set(['good', 'off_target', 'dark', 'bad']),
       visibilityTypes: new Set(['out', 'partially_out', 'not_out']),
       disagreementsOnly: false,
@@ -233,16 +234,16 @@ export class AdminLabelingController {
         }
       }
       
-      // Confidence threshold filter
-      if (this.filters.confidenceThreshold < 100) {
+      // Confidence threshold filters
+      if (this.filters.frameConfidenceThreshold < 100) {
         const frameStateConf = (img.analysis.frame_state_probability || 0) * 100;
-        
-        if (img.analysis.frame_state === 'good' && img.analysis.visibility_prob != null) {
+        if (frameStateConf >= this.filters.frameConfidenceThreshold) return false;
+      }
+      
+      if (img.analysis.frame_state === 'good' && this.filters.visibilityConfidenceThreshold < 100) {
+        if (img.analysis.visibility_prob != null) {
           const visibilityConf = img.analysis.visibility_prob * 100;
-          const minConfidence = Math.min(frameStateConf, visibilityConf);
-          if (minConfidence >= this.filters.confidenceThreshold) return false;
-        } else {
-          if (frameStateConf >= this.filters.confidenceThreshold) return false;
+          if (visibilityConf >= this.filters.visibilityConfidenceThreshold) return false;
         }
       }
       

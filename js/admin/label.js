@@ -40,8 +40,9 @@ async function init() {
   document.getElementById('start-date').value = localDateStr;
   document.getElementById('end-date').value = localDateStr;
 
-  // Update confidence display
+  // Update confidence displays
   updateConfidenceDisplay();
+  updateVisibilityThresholdState();
 }
 
 /**
@@ -114,9 +115,9 @@ function registerFilterHandlers() {
   // Apply filters button
   document.getElementById('apply-filters').addEventListener('click', applyFilters);
 
-  // Confidence threshold slider
-  const slider = document.getElementById('confidence-threshold');
-  slider.addEventListener('input', updateConfidenceDisplay);
+  // Confidence threshold sliders
+  document.getElementById('frame-confidence-threshold').addEventListener('input', updateConfidenceDisplay);
+  document.getElementById('visibility-confidence-threshold').addEventListener('input', updateConfidenceDisplay);
 
   // Label source dropdown
   document.getElementById('label-source').addEventListener('change', (e) => {
@@ -130,6 +131,7 @@ function registerFilterHandlers() {
     checkbox.addEventListener('change', () => {
       updateFrameStateFilter();
       updateVisibilityCheckboxes();
+      updateVisibilityThresholdState();
     });
   });
 
@@ -187,6 +189,22 @@ function updateVisibilityCheckboxes() {
 }
 
 /**
+ * Update visibility threshold slider state based on "good" frame state
+ */
+function updateVisibilityThresholdState() {
+  const goodChecked = document.getElementById('frame-good').checked;
+  const slider = document.getElementById('visibility-confidence-threshold');
+  const display = document.getElementById('visibility-confidence-value');
+  
+  slider.disabled = !goodChecked;
+  if (!goodChecked) {
+    display.style.opacity = '0.5';
+  } else {
+    display.style.opacity = '1';
+  }
+}
+
+/**
  * Update disagreements checkbox based on label source
  */
 function updateDisagreementsCheckbox() {
@@ -220,9 +238,11 @@ async function applyFilters() {
   document.getElementById('apply-filters').textContent = 'Loading...';
 
   try {
-    // Update confidence threshold
-    const confidence = parseInt(document.getElementById('confidence-threshold').value);
-    controller.filters.confidenceThreshold = confidence;
+    // Update confidence thresholds
+    const frameConfidence = parseInt(document.getElementById('frame-confidence-threshold').value);
+    const visibilityConfidence = parseInt(document.getElementById('visibility-confidence-threshold').value);
+    controller.filters.frameConfidenceThreshold = frameConfidence;
+    controller.filters.visibilityConfidenceThreshold = visibilityConfidence;
 
     // Load data
     await controller.loadDataForDateRange(startDate, endDate);
@@ -572,9 +592,13 @@ function updateNavigationButtons() {
  * Update confidence threshold display
  */
 function updateConfidenceDisplay() {
-  const slider = document.getElementById('confidence-threshold');
-  const display = document.getElementById('confidence-value');
-  display.textContent = slider.value;
+  const frameSlider = document.getElementById('frame-confidence-threshold');
+  const frameDisplay = document.getElementById('frame-confidence-value');
+  frameDisplay.textContent = frameSlider.value;
+  
+  const visSlider = document.getElementById('visibility-confidence-threshold');
+  const visDisplay = document.getElementById('visibility-confidence-value');
+  visDisplay.textContent = visSlider.value;
 }
 
 /**

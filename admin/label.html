@@ -45,10 +45,18 @@
             <summary class="filter-summary">Advanced Filters</summary>
             <div class="filter-panel__advanced">
               <div class="filter-group">
-                <label>Confidence threshold: 
-                  <span class="tooltip" title="Show images with AI confidence LESS than this threshold. When 'Good frames only' is checked, uses visibility confidence. Otherwise uses the lowest confidence between frame state and visibility predictions.">ℹ️</span>
-                  <input type="range" id="confidence-threshold" min="50" max="100" value="100" class="input--range">
-                  <span id="confidence-value">100</span>%
+                <label>Frame state confidence threshold: 
+                  <span class="tooltip" title="Show images with frame state AI confidence LESS than this threshold.">ℹ️</span>
+                  <input type="range" id="frame-confidence-threshold" min="50" max="100" value="100" class="input--range">
+                  <span id="frame-confidence-value">100</span>%
+                </label>
+              </div>
+              
+              <div class="filter-group">
+                <label>Visibility confidence threshold: 
+                  <span class="tooltip" title="Show images with visibility AI confidence LESS than this threshold. Only applies to 'good' frame states.">ℹ️</span>
+                  <input type="range" id="visibility-confidence-threshold" min="50" max="100" value="100" class="input--range">
+                  <span id="visibility-confidence-value">100</span>%
                 </label>
               </div>
               
