@@ -58,9 +58,10 @@ export class AdminLabelingController {
     this.filters = {
       startDate: null,
       endDate: null,
-      excludeLabeled: 'none',
+      labelSource: 'none',
       confidenceThreshold: 100,
-      goodFramesOnly: false,
+      frameStates: new Set(['good', 'off_target', 'dark', 'bad']),
+      visibilityTypes: new Set(['out', 'partially_out', 'not_out']),
       disagreementsOnly: false,
     };
     
@@ -207,29 +208,40 @@ export class AdminLabelingController {
     
     // Apply filters
     this.filteredImages = allImages.filter(img => {
-      // Exclude labeled filter
-      if (this.filters.excludeLabeled !== 'none' && img.existingLabel) {
-        if (this.filters.excludeLabeled === 'any') return false;
-        if (this.filters.excludeLabeled === 'admin' && img.existingLabel.labelSource === 'admin') return false;
-        if (this.filters.excludeLabeled === 'crowd' && img.existingLabel.labelSource === 'crowd') return false;
+      // Label source filter
+      if (this.filters.labelSource !== 'none') {
+        const hasLabel = !!img.existingLabel;
+        const isAdmin = hasLabel && img.existingLabel.labelSource === 'admin';
+        const isCrowd = hasLabel && img.existingLabel.labelSource === 'crowd';
+        
+        if (this.filters.labelSource === 'exclude-admin' && isAdmin) return false;
+        if (this.filters.labelSource === 'exclude-crowd' && isCrowd) return false;
+        if (this.filters.labelSource === 'exclude-any' && hasLabel) return false;
+        if (this.filters.labelSource === 'only-admin' && !isAdmin) return false;
+        if (this.filters.labelSource === 'only-crowd' && !isCrowd) return false;
+        if (this.filters.labelSource === 'only-any' && !hasLabel) return false;
       }
       
-      // Good frames only filter
-      if (this.filters.goodFramesOnly) {
-        if (img.analysis.frame_state !== 'good') return false;
+      // Frame state filter
+      if (!this.filters.frameStates.has(img.analysis.frame_state)) return false;
+      
+      // Visibility filter (only applies to good frames with visibility predictions)
+      if (img.analysis.frame_state === 'good') {
+        // If frame is good, it must have a visibility prediction that matches filter
+        if (!img.analysis.visibility || !this.filters.visibilityTypes.has(img.analysis.visibility)) {
+          return false;
+        }
       }
       
-      // Confidence threshold filter (corrected logic)
+      // Confidence threshold filter
       if (this.filters.confidenceThreshold < 100) {
         const frameStateConf = (img.analysis.frame_state_probability || 0) * 100;
         
         if (img.analysis.frame_state === 'good' && img.analysis.visibility_prob != null) {
-          // For good frames, use the lower of frame state and visibility confidence
           const visibilityConf = img.analysis.visibility_prob * 100;
           const minConfidence = Math.min(frameStateConf, visibilityConf);
           if (minConfidence >= this.filters.confidenceThreshold) return false;
         } else {
-          // For non-good frames, use frame state confidence only
           if (frameStateConf >= this.filters.confidenceThreshold) return false;
         }
       }

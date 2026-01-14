@@ -423,7 +423,26 @@
 
 .filter-group--checkboxes {
   display: flex;
+  flex-wrap: wrap;
   gap: var(--space-md);
+  margin-top: var(--space-xs);
+}
+
+.filter-group--checkboxes label {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  cursor: pointer;
+}
+
+.filter-group--checkboxes input[type="checkbox"]:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.filter-group--checkboxes input[type="checkbox"]:disabled + span {
+  opacity: 0.4;
+  cursor: not-allowed;
 }
 
 .input--compact {
@@ -813,6 +832,31 @@
 
 .image-viewer__nav-arrow--next {
   right: clamp(8px, 2vw + 0.2rem, 12px);
+}
+
+/* Label Pills Overlay (Admin Page) */
+.image-viewer__label-pills {
+  position: absolute;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: clamp(4px, 1vw, 8px);
+  z-index: 30;
+}
+
+.pill--overlay {
+  background: var(--color-success);
+  opacity: 0.25;
+  color: white;
+  padding: clamp(3px, 0.5vw, 5px) clamp(6px, 1vw, 10px);
+  font-size: clamp(10px, 1.5vw, 12px);
+  font-family: var(--font-mono);
+  font-weight: 600;
+  border-radius: var(--radius-md);
+  backdrop-filter: blur(4px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
 }
 
 .pill--analysis {

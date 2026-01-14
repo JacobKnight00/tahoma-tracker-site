@@ -53,22 +53,47 @@
               </div>
               
               <div class="filter-group">
-                <label>Hide already labeled:
-                  <span class="tooltip" title="Choose which labeled images to hide from the queue. 'Hide any labeled' will only show completely unlabeled images.">ℹ️</span>
-                  <select id="exclude-labeled" class="input input--compact">
+                <label>Label source:
+                  <span class="tooltip" title="Filter images by their labeling status. 'Exclude' options hide labeled images. 'Only' options show only labeled images.">ℹ️</span>
+                  <select id="label-source" class="input input--compact">
                     <option value="none">Show all images</option>
-                    <option value="admin">Hide admin labeled</option>
-                    <option value="crowd">Hide crowd labeled</option>
-                    <option value="any">Hide any labeled</option>
+                    <option value="exclude-admin">Exclude admin labeled</option>
+                    <option value="exclude-crowd">Exclude crowd labeled</option>
+                    <option value="exclude-any">Exclude any labeled</option>
+                    <option value="only-admin">Only admin labeled</option>
+                    <option value="only-crowd">Only crowd labeled</option>
+                    <option value="only-any">Only any labeled</option>
                   </select>
                 </label>
               </div>
               
+              <div class="filter-group">
+                <label>Frame states:
+                  <span class="tooltip" title="Select which frame state classifications to include. Uncheck 'good' to disable visibility filtering.">ℹ️</span>
+                </label>
+                <div class="filter-group--checkboxes">
+                  <label><input type="checkbox" id="frame-good" checked> Good</label>
+                  <label><input type="checkbox" id="frame-off-target" checked> Off-target</label>
+                  <label><input type="checkbox" id="frame-dark" checked> Dark</label>
+                  <label><input type="checkbox" id="frame-bad" checked> Bad</label>
+                </div>
+              </div>
+              
+              <div class="filter-group">
+                <label>Visibility types:
+                  <span class="tooltip" title="Select which visibility classifications to include. Only applies to 'good' frame states.">ℹ️</span>
+                </label>
+                <div class="filter-group--checkboxes">
+                  <label><input type="checkbox" id="vis-out" checked> Out</label>
+                  <label><input type="checkbox" id="vis-partially-out" checked> Partial</label>
+                  <label><input type="checkbox" id="vis-not-out" checked> Not out</label>
+                </div>
+              </div>
+              
               <div class="filter-group filter-group--checkboxes">
-                <label><input type="checkbox" id="good-frames-only"> Good frames only</label>
                 <label>
                   <input type="checkbox" id="disagreements-only"> Disagreements only
-                  <span class="tooltip" title="Show only images where AI predictions disagree with existing manual labels (different frame state or visibility classifications).">ℹ️</span>
+                  <span class="tooltip" title="Show only images where AI predictions disagree with existing manual labels. Only available when admin labels are included.">ℹ️</span>
                 </label>
               </div>
             </div>

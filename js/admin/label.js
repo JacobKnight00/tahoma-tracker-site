@@ -118,18 +118,88 @@ function registerFilterHandlers() {
   const slider = document.getElementById('confidence-threshold');
   slider.addEventListener('input', updateConfidenceDisplay);
 
-  // Real-time filter updates
-  document.getElementById('good-frames-only').addEventListener('change', (e) => {
-    controller.updateFilter('goodFramesOnly', e.target.checked);
+  // Label source dropdown
+  document.getElementById('label-source').addEventListener('change', (e) => {
+    controller.updateFilter('labelSource', e.target.value);
+    updateDisagreementsCheckbox();
   });
 
-  document.getElementById('exclude-labeled').addEventListener('change', (e) => {
-    controller.updateFilter('excludeLabeled', e.target.value);
+  // Frame state checkboxes
+  ['good', 'off_target', 'dark', 'bad'].forEach(state => {
+    const checkbox = document.getElementById(`frame-${state.replace('_', '-')}`);
+    checkbox.addEventListener('change', () => {
+      updateFrameStateFilter();
+      updateVisibilityCheckboxes();
+    });
   });
 
+  // Visibility checkboxes
+  ['out', 'partially_out', 'not_out'].forEach(vis => {
+    const checkbox = document.getElementById(`vis-${vis.replace('_', '-')}`);
+    checkbox.addEventListener('change', updateVisibilityFilter);
+  });
+
+  // Disagreements checkbox
   document.getElementById('disagreements-only').addEventListener('change', (e) => {
     controller.updateFilter('disagreementsOnly', e.target.checked);
   });
+}
+
+/**
+ * Update frame state filter from checkboxes
+ */
+function updateFrameStateFilter() {
+  const states = new Set();
+  ['good', 'off_target', 'dark', 'bad'].forEach(state => {
+    const checkbox = document.getElementById(`frame-${state.replace('_', '-')}`);
+    if (checkbox.checked) states.add(state);
+  });
+  controller.updateFilter('frameStates', states);
+}
+
+/**
+ * Update visibility filter from checkboxes
+ */
+function updateVisibilityFilter() {
+  const types = new Set();
+  ['out', 'partially_out', 'not_out'].forEach(vis => {
+    const checkbox = document.getElementById(`vis-${vis.replace('_', '-')}`);
+    if (checkbox.checked) types.add(vis);
+  });
+  controller.updateFilter('visibilityTypes', types);
+}
+
+/**
+ * Update visibility checkboxes based on "good" frame state
+ */
+function updateVisibilityCheckboxes() {
+  const goodChecked = document.getElementById('frame-good').checked;
+  const visCheckboxes = ['out', 'partially_out', 'not_out'].map(vis => 
+    document.getElementById(`vis-${vis.replace('_', '-')}`)
+  );
+  
+  visCheckboxes.forEach(checkbox => {
+    checkbox.disabled = !goodChecked;
+    if (!goodChecked) checkbox.checked = false;
+  });
+  
+  if (!goodChecked) updateVisibilityFilter();
+}
+
+/**
+ * Update disagreements checkbox based on label source
+ */
+function updateDisagreementsCheckbox() {
+  const labelSource = document.getElementById('label-source').value;
+  const disagreementsCheckbox = document.getElementById('disagreements-only');
+  
+  // Disable if admin labels are excluded
+  const adminExcluded = labelSource === 'exclude-admin' || labelSource === 'only-crowd';
+  disagreementsCheckbox.disabled = adminExcluded;
+  if (adminExcluded) {
+    disagreementsCheckbox.checked = false;
+    controller.updateFilter('disagreementsOnly', false);
+  }
 }
 
 /**
@@ -197,6 +267,9 @@ async function handleImageChange(imageData) {
     if (direction === 'next') controller.navigateNext();
     if (direction === 'prev') controller.navigatePrevious();
   }, { hasNext, hasPrev });
+
+  // Update label pills overlay
+  imageViewer.updateLabelPills(imageData.existingLabel);
 
   // Update image context
   updateImageContext(imageData);

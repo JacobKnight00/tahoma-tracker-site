@@ -60,6 +60,45 @@ export class ImageViewer {
   }
 
   /**
+   * Update label pills overlay (admin page only)
+   * @param {Object} existingLabel - Existing label data { frameState, visibility, labelSource }
+   */
+  updateLabelPills(existingLabel) {
+    const wrapper = this.container.querySelector('.image-viewer__wrapper');
+    if (!wrapper) return;
+
+    // Remove existing pills overlay
+    const existing = wrapper.querySelector('.image-viewer__label-pills');
+    if (existing) existing.remove();
+
+    // Only show pills for admin labels
+    if (!existingLabel || existingLabel.labelSource !== 'admin') return;
+
+    // Create pills container
+    const pillsContainer = createElement('div', {
+      class: 'image-viewer__label-pills'
+    });
+
+    // Frame state pill
+    const framePill = createElement('span', {
+      class: 'pill pill--overlay'
+    });
+    framePill.textContent = `F: ${existingLabel.frameState}`;
+    pillsContainer.appendChild(framePill);
+
+    // Visibility pill (if exists)
+    if (existingLabel.visibility) {
+      const visPill = createElement('span', {
+        class: 'pill pill--overlay'
+      });
+      visPill.textContent = `V: ${existingLabel.visibility}`;
+      pillsContainer.appendChild(visPill);
+    }
+
+    wrapper.appendChild(pillsContainer);
+  }
+
+  /**
    * Clear navigation arrows
    */
   clearNavigationArrows() {
