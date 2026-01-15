@@ -39,25 +39,34 @@
               <input type="date" id="end-date" class="input input--compact">
             </div>
             <button id="apply-filters" class="button button--primary">Apply</button>
+            <button id="reset-filters" class="button button--ghost">Reset</button>
           </div>
           
           <details class="filter-details">
             <summary class="filter-summary">Advanced Filters</summary>
             <div class="filter-panel__advanced">
               <div class="filter-group">
-                <label>Frame state confidence threshold: 
-                  <span class="tooltip" title="Show images with frame state AI confidence LESS than this threshold.">ℹ️</span>
-                  <input type="range" id="frame-confidence-threshold" min="50" max="100" value="100" class="input--range">
-                  <span id="frame-confidence-value">100</span>%
+                <label>Frame state confidence: 
+                  <span class="tooltip" title="Show images with frame state AI confidence between these values.">ℹ️</span>
                 </label>
+                <div class="range-inputs">
+                  <input type="number" id="frame-confidence-min" min="0" max="100" value="0" class="input input--tiny">
+                  <span>to</span>
+                  <input type="number" id="frame-confidence-max" min="0" max="100" value="100" class="input input--tiny">
+                  <span>%</span>
+                </div>
               </div>
               
               <div class="filter-group">
-                <label>Visibility confidence threshold: 
-                  <span class="tooltip" title="Show images with visibility AI confidence LESS than this threshold. Only applies to 'good' frame states.">ℹ️</span>
-                  <input type="range" id="visibility-confidence-threshold" min="50" max="100" value="100" class="input--range">
-                  <span id="visibility-confidence-value">100</span>%
+                <label>Visibility confidence: 
+                  <span class="tooltip" title="Show images with visibility AI confidence between these values. Only applies to 'good' frame states.">ℹ️</span>
                 </label>
+                <div class="range-inputs">
+                  <input type="number" id="visibility-confidence-min" min="0" max="100" value="0" class="input input--tiny">
+                  <span>to</span>
+                  <input type="number" id="visibility-confidence-max" min="0" max="100" value="100" class="input input--tiny">
+                  <span>%</span>
+                </div>
               </div>
               
               <div class="filter-group">
@@ -77,24 +86,44 @@
               
               <div class="filter-group">
                 <label>Frame states:
-                  <span class="tooltip" title="Select which frame state classifications to include. Uncheck 'good' to disable visibility filtering.">ℹ️</span>
+                  <span class="tooltip" title="Select which frame state classifications to include by source (AI prediction or Human label).">ℹ️</span>
                 </label>
-                <div class="filter-group--checkboxes">
-                  <label><input type="checkbox" id="frame-good" checked> Good</label>
-                  <label><input type="checkbox" id="frame-off-target" checked> Off-target</label>
-                  <label><input type="checkbox" id="frame-dark" checked> Dark</label>
-                  <label><input type="checkbox" id="frame-bad" checked> Bad</label>
+                <div class="filter-grid">
+                  <div class="filter-grid__header"></div>
+                  <div class="filter-grid__header">AI</div>
+                  <div class="filter-grid__header">Human</div>
+                  <div class="filter-grid__label">Good</div>
+                  <div><input type="checkbox" id="frame-good-ai" checked></div>
+                  <div><input type="checkbox" id="frame-good-human" class="human-filter"></div>
+                  <div class="filter-grid__label">Off-target</div>
+                  <div><input type="checkbox" id="frame-off-target-ai" checked></div>
+                  <div><input type="checkbox" id="frame-off-target-human" class="human-filter"></div>
+                  <div class="filter-grid__label">Dark</div>
+                  <div><input type="checkbox" id="frame-dark-ai" checked></div>
+                  <div><input type="checkbox" id="frame-dark-human" class="human-filter"></div>
+                  <div class="filter-grid__label">Bad</div>
+                  <div><input type="checkbox" id="frame-bad-ai" checked></div>
+                  <div><input type="checkbox" id="frame-bad-human" class="human-filter"></div>
                 </div>
               </div>
               
               <div class="filter-group">
                 <label>Visibility types:
-                  <span class="tooltip" title="Select which visibility classifications to include. Only applies to 'good' frame states.">ℹ️</span>
+                  <span class="tooltip" title="Select which visibility classifications to include. Only applies when 'Good' is selected.">ℹ️</span>
                 </label>
-                <div class="filter-group--checkboxes">
-                  <label><input type="checkbox" id="vis-out" checked> Out</label>
-                  <label><input type="checkbox" id="vis-partially-out" checked> Partial</label>
-                  <label><input type="checkbox" id="vis-not-out" checked> Not out</label>
+                <div class="filter-grid">
+                  <div class="filter-grid__header"></div>
+                  <div class="filter-grid__header">AI</div>
+                  <div class="filter-grid__header">Human</div>
+                  <div class="filter-grid__label">Out</div>
+                  <div><input type="checkbox" id="vis-out-ai" checked></div>
+                  <div><input type="checkbox" id="vis-out-human" class="human-filter"></div>
+                  <div class="filter-grid__label">Partial</div>
+                  <div><input type="checkbox" id="vis-partially-out-ai" checked></div>
+                  <div><input type="checkbox" id="vis-partially-out-human" class="human-filter"></div>
+                  <div class="filter-grid__label">Not out</div>
+                  <div><input type="checkbox" id="vis-not-out-ai" checked></div>
+                  <div><input type="checkbox" id="vis-not-out-human" class="human-filter"></div>
                 </div>
               </div>
               
@@ -206,6 +235,9 @@
           <div class="button-grid--actions">
             <button data-action="submit-batch" class="button button--primary button--small" disabled>
               <span class="mobile-text">Submit (</span><span id="batch-count">0</span><span class="mobile-text">)</span>
+            </button>
+            <button data-action="refresh-labels" class="button button--ghost button--small" disabled>
+              Refresh Labels
             </button>
           </div>
           <div class="batch-status" id="batch-status">Batch: 0 pending (auto-submits at 10)</div>

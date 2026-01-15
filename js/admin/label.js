@@ -28,6 +28,7 @@ async function init() {
   };
   controller.onProgressUpdate = handleProgressUpdate;
   controller.onBatchSubmit = handleBatchSubmit;
+  controller.onLabelsRefreshed = handleLabelsRefreshed;
 
   // Set up event handlers
   registerKeyboardShortcuts();
@@ -41,7 +42,6 @@ async function init() {
   document.getElementById('end-date').value = localDateStr;
 
   // Update confidence displays
-  updateConfidenceDisplay();
   updateVisibilityThresholdState();
 }
 
@@ -97,6 +97,7 @@ function registerButtonHandlers() {
 
   // Batch actions
   document.querySelector('[data-action="submit-batch"]')?.addEventListener('click', submitBatch);
+  document.querySelector('[data-action="refresh-labels"]')?.addEventListener('click', refreshLabels);
 
   // Help overlay - commented out for now
   // const helpCloseBtn = document.querySelector('[data-action="close-help"]');
@@ -114,31 +115,47 @@ function registerButtonHandlers() {
 function registerFilterHandlers() {
   // Apply filters button
   document.getElementById('apply-filters').addEventListener('click', applyFilters);
+  
+  // Reset filters button
+  document.getElementById('reset-filters').addEventListener('click', resetFilters);
 
   // Confidence threshold sliders
-  document.getElementById('frame-confidence-threshold').addEventListener('input', updateConfidenceDisplay);
-  document.getElementById('visibility-confidence-threshold').addEventListener('input', updateConfidenceDisplay);
+  ['frame-confidence-min', 'frame-confidence-max', 'visibility-confidence-min', 'visibility-confidence-max'].forEach(id => {
+    document.getElementById(id)?.addEventListener('change', updateVisibilityThresholdState);
+  });
 
   // Label source dropdown
   document.getElementById('label-source').addEventListener('change', (e) => {
     controller.updateFilter('labelSource', e.target.value);
+    updateHumanFilterCheckboxes();
     updateDisagreementsCheckbox();
   });
 
-  // Frame state checkboxes
+  // Frame state checkboxes (AI)
   ['good', 'off_target', 'dark', 'bad'].forEach(state => {
-    const checkbox = document.getElementById(`frame-${state.replace('_', '-')}`);
-    checkbox.addEventListener('change', () => {
+    const id = `frame-${state.replace('_', '-')}-ai`;
+    document.getElementById(id)?.addEventListener('change', () => {
       updateFrameStateFilter();
       updateVisibilityCheckboxes();
       updateVisibilityThresholdState();
     });
   });
 
-  // Visibility checkboxes
+  // Frame state checkboxes (Human)
+  ['good', 'off_target', 'dark', 'bad'].forEach(state => {
+    const id = `frame-${state.replace('_', '-')}-human`;
+    document.getElementById(id)?.addEventListener('change', () => {
+      updateFrameStateFilter();
+      updateVisibilityCheckboxes();
+    });
+  });
+
+  // Visibility checkboxes (AI and Human)
   ['out', 'partially_out', 'not_out'].forEach(vis => {
-    const checkbox = document.getElementById(`vis-${vis.replace('_', '-')}`);
-    checkbox.addEventListener('change', updateVisibilityFilter);
+    const aiId = `vis-${vis.replace('_', '-')}-ai`;
+    const humanId = `vis-${vis.replace('_', '-')}-human`;
+    document.getElementById(aiId)?.addEventListener('change', updateVisibilityFilter);
+    document.getElementById(humanId)?.addEventListener('change', updateVisibilityFilter);
   });
 
   // Disagreements checkbox
@@ -151,57 +168,92 @@ function registerFilterHandlers() {
  * Update frame state filter from checkboxes
  */
 function updateFrameStateFilter() {
-  const states = new Set();
+  const aiStates = new Set();
+  const humanStates = new Set();
   ['good', 'off_target', 'dark', 'bad'].forEach(state => {
-    const checkbox = document.getElementById(`frame-${state.replace('_', '-')}`);
-    if (checkbox.checked) states.add(state);
+    const stateKey = state.replace('_', '-');
+    if (document.getElementById(`frame-${stateKey}-ai`)?.checked) aiStates.add(state);
+    if (document.getElementById(`frame-${stateKey}-human`)?.checked) humanStates.add(state);
   });
-  controller.updateFilter('frameStates', states);
+  controller.updateFilter('frameStatesAI', aiStates);
+  controller.updateFilter('frameStatesHuman', humanStates);
 }
 
 /**
  * Update visibility filter from checkboxes
  */
 function updateVisibilityFilter() {
-  const types = new Set();
+  const aiTypes = new Set();
+  const humanTypes = new Set();
   ['out', 'partially_out', 'not_out'].forEach(vis => {
-    const checkbox = document.getElementById(`vis-${vis.replace('_', '-')}`);
-    if (checkbox.checked) types.add(vis);
+    const visKey = vis.replace('_', '-');
+    if (document.getElementById(`vis-${visKey}-ai`)?.checked) aiTypes.add(vis);
+    if (document.getElementById(`vis-${visKey}-human`)?.checked) humanTypes.add(vis);
   });
-  controller.updateFilter('visibilityTypes', types);
+  controller.updateFilter('visibilityTypesAI', aiTypes);
+  controller.updateFilter('visibilityTypesHuman', humanTypes);
 }
 
 /**
- * Update visibility checkboxes based on "good" frame state
+ * Update visibility checkboxes based on "good" frame state (AI column)
  */
 function updateVisibilityCheckboxes() {
-  const goodChecked = document.getElementById('frame-good').checked;
-  const visCheckboxes = ['out', 'partially_out', 'not_out'].map(vis => 
-    document.getElementById(`vis-${vis.replace('_', '-')}`)
-  );
+  const goodAIChecked = document.getElementById('frame-good-ai')?.checked;
+  const goodHumanChecked = document.getElementById('frame-good-human')?.checked;
   
-  visCheckboxes.forEach(checkbox => {
-    checkbox.disabled = !goodChecked;
-    if (!goodChecked) checkbox.checked = false;
+  // AI visibility checkboxes depend on AI good
+  ['out', 'partially_out', 'not_out'].forEach(vis => {
+    const visKey = vis.replace('_', '-');
+    const aiCheckbox = document.getElementById(`vis-${visKey}-ai`);
+    if (aiCheckbox) {
+      aiCheckbox.disabled = !goodAIChecked;
+      if (!goodAIChecked) aiCheckbox.checked = false;
+    }
   });
   
-  if (!goodChecked) updateVisibilityFilter();
+  // Human visibility checkboxes depend on Human good AND human filters being enabled
+  const humanEnabled = !document.getElementById('frame-good-human')?.disabled;
+  ['out', 'partially_out', 'not_out'].forEach(vis => {
+    const visKey = vis.replace('_', '-');
+    const humanCheckbox = document.getElementById(`vis-${visKey}-human`);
+    if (humanCheckbox) {
+      humanCheckbox.disabled = !humanEnabled || !goodHumanChecked;
+      if (humanCheckbox.disabled) humanCheckbox.checked = false;
+    }
+  });
+  
+  updateVisibilityFilter();
 }
 
 /**
- * Update visibility threshold slider state based on "good" frame state
+ * Update human filter checkboxes based on label source
+ */
+function updateHumanFilterCheckboxes() {
+  const labelSource = document.getElementById('label-source').value;
+  // Disable human filters only when ALL labels are excluded
+  const humanDisabled = labelSource === 'exclude-any';
+  
+  document.querySelectorAll('.human-filter').forEach(checkbox => {
+    checkbox.disabled = humanDisabled;
+    if (humanDisabled) checkbox.checked = false;
+  });
+  
+  // Also update visibility human checkboxes
+  updateVisibilityCheckboxes();
+}
+
+/**
+ * Update visibility threshold inputs state based on "good" frame state
  */
 function updateVisibilityThresholdState() {
-  const goodChecked = document.getElementById('frame-good').checked;
-  const slider = document.getElementById('visibility-confidence-threshold');
-  const display = document.getElementById('visibility-confidence-value');
+  const goodChecked = document.getElementById('frame-good-ai')?.checked;
   
-  slider.disabled = !goodChecked;
-  if (!goodChecked) {
-    display.style.opacity = '0.5';
-  } else {
-    display.style.opacity = '1';
-  }
+  ['visibility-confidence-min', 'visibility-confidence-max'].forEach(id => {
+    const input = document.getElementById(id);
+    if (input) {
+      input.disabled = !goodChecked;
+    }
+  });
 }
 
 /**
@@ -218,6 +270,41 @@ function updateDisagreementsCheckbox() {
     disagreementsCheckbox.checked = false;
     controller.updateFilter('disagreementsOnly', false);
   }
+}
+
+/**
+ * Reset all filters to defaults
+ */
+function resetFilters() {
+  // Confidence ranges
+  document.getElementById('frame-confidence-min').value = 0;
+  document.getElementById('frame-confidence-max').value = 100;
+  document.getElementById('visibility-confidence-min').value = 0;
+  document.getElementById('visibility-confidence-max').value = 100;
+  
+  // Label source
+  document.getElementById('label-source').value = 'none';
+  
+  // Frame states - AI all checked, Human all unchecked
+  ['good', 'off-target', 'dark', 'bad'].forEach(state => {
+    document.getElementById(`frame-${state}-ai`).checked = true;
+    document.getElementById(`frame-${state}-human`).checked = false;
+  });
+  
+  // Visibility - AI all checked, Human all unchecked
+  ['out', 'partially-out', 'not-out'].forEach(vis => {
+    document.getElementById(`vis-${vis}-ai`).checked = true;
+    document.getElementById(`vis-${vis}-human`).checked = false;
+  });
+  
+  // Disagreements
+  document.getElementById('disagreements-only').checked = false;
+  
+  // Update dependent states
+  updateHumanFilterCheckboxes();
+  updateVisibilityCheckboxes();
+  updateVisibilityThresholdState();
+  updateDisagreementsCheckbox();
 }
 
 /**
@@ -239,10 +326,10 @@ async function applyFilters() {
 
   try {
     // Update confidence thresholds
-    const frameConfidence = parseInt(document.getElementById('frame-confidence-threshold').value);
-    const visibilityConfidence = parseInt(document.getElementById('visibility-confidence-threshold').value);
-    controller.filters.frameConfidenceThreshold = frameConfidence;
-    controller.filters.visibilityConfidenceThreshold = visibilityConfidence;
+    controller.filters.frameConfidenceMin = parseInt(document.getElementById('frame-confidence-min').value) || 0;
+    controller.filters.frameConfidenceMax = parseInt(document.getElementById('frame-confidence-max').value) || 100;
+    controller.filters.visibilityConfidenceMin = parseInt(document.getElementById('visibility-confidence-min').value) || 0;
+    controller.filters.visibilityConfidenceMax = parseInt(document.getElementById('visibility-confidence-max').value) || 100;
 
     // Load data
     await controller.loadDataForDateRange(startDate, endDate);
@@ -440,12 +527,18 @@ function handleProgressUpdate(progress) {
   // Enable/disable batch submit button
   const batchButton = document.querySelector('[data-action="submit-batch"]');
   batchButton.disabled = progress.batchSize === 0;
+  
+  // Enable refresh button when we have images loaded
+  const refreshButton = document.querySelector('[data-action="refresh-labels"]');
+  if (refreshButton) {
+    refreshButton.disabled = progress.total === 0;
+  }
 }
 
 /**
  * Handle batch submission results
  */
-function handleBatchSubmit(result) {
+async function handleBatchSubmit(result) {
   if (result.success) {
     console.log(`Batch submitted: ${result.count} labels`);
     
@@ -462,8 +555,50 @@ function handleBatchSubmit(result) {
     // Disable batch submit button
     const batchButton = document.querySelector('[data-action="submit-batch"]');
     batchButton.disabled = true;
+    
+    // Auto-refresh labels from database
+    await refreshLabels();
   } else {
     alert(`Failed to submit batch: ${result.error}`);
+  }
+}
+
+/**
+ * Handle labels refreshed callback
+ */
+function handleLabelsRefreshed(result) {
+  if (result.success) {
+    showSuccessMessage(`✓ Labels refreshed (${result.updated} updated)`);
+    // Re-render current image to show updated labels
+    const currentImage = controller.getCurrentImage();
+    if (currentImage) {
+      handleImageChange(currentImage);
+    }
+  } else {
+    console.error('Failed to refresh labels:', result.error);
+  }
+}
+
+/**
+ * Refresh labels from database
+ */
+async function refreshLabels() {
+  const refreshBtn = document.querySelector('[data-action="refresh-labels"]');
+  if (refreshBtn) {
+    refreshBtn.disabled = true;
+    refreshBtn.textContent = 'Refreshing...';
+  }
+  
+  try {
+    await controller.refreshLabelsFromDatabase();
+  } catch (err) {
+    console.error('Failed to refresh labels:', err);
+    alert(`Failed to refresh labels: ${err.message}`);
+  } finally {
+    if (refreshBtn) {
+      refreshBtn.disabled = false;
+      refreshBtn.textContent = 'Refresh Labels';
+    }
   }
 }
 
@@ -592,13 +727,7 @@ function updateNavigationButtons() {
  * Update confidence threshold display
  */
 function updateConfidenceDisplay() {
-  const frameSlider = document.getElementById('frame-confidence-threshold');
-  const frameDisplay = document.getElementById('frame-confidence-value');
-  frameDisplay.textContent = frameSlider.value;
-  
-  const visSlider = document.getElementById('visibility-confidence-threshold');
-  const visDisplay = document.getElementById('visibility-confidence-value');
-  visDisplay.textContent = visSlider.value;
+  // No longer needed - using number inputs now
 }
 
 /**

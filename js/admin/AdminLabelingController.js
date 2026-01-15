@@ -59,10 +59,14 @@ export class AdminLabelingController {
       startDate: null,
       endDate: null,
       labelSource: 'none',
-      frameConfidenceThreshold: 100,
-      visibilityConfidenceThreshold: 100,
-      frameStates: new Set(['good', 'off_target', 'dark', 'bad']),
-      visibilityTypes: new Set(['out', 'partially_out', 'not_out']),
+      frameConfidenceMin: 0,
+      frameConfidenceMax: 100,
+      visibilityConfidenceMin: 0,
+      visibilityConfidenceMax: 100,
+      frameStatesAI: new Set(['good', 'off_target', 'dark', 'bad']),
+      frameStatesHuman: new Set(),
+      visibilityTypesAI: new Set(['out', 'partially_out', 'not_out']),
+      visibilityTypesHuman: new Set(),
       disagreementsOnly: false,
     };
     
@@ -70,6 +74,7 @@ export class AdminLabelingController {
     this.onImageChange = null;
     this.onProgressUpdate = null;
     this.onBatchSubmit = null;
+    this.onLabelsRefreshed = null;
   }
 
   /**
@@ -223,27 +228,52 @@ export class AdminLabelingController {
         if (this.filters.labelSource === 'only-any' && !hasLabel) return false;
       }
       
-      // Frame state filter
-      if (!this.filters.frameStates.has(img.analysis.frame_state)) return false;
+      // Check if any AI/Human filters are active
+      const hasAIFrameFilters = this.filters.frameStatesAI.size > 0;
+      const hasHumanFrameFilters = this.filters.frameStatesHuman.size > 0;
       
-      // Visibility filter (only applies to good frames with visibility predictions)
-      if (img.analysis.frame_state === 'good') {
-        // If frame is good, it must have a visibility prediction that matches filter
-        if (!img.analysis.visibility || !this.filters.visibilityTypes.has(img.analysis.visibility)) {
-          return false;
+      // AI frame state filter
+      if (hasAIFrameFilters) {
+        if (!this.filters.frameStatesAI.has(img.analysis.frame_state)) return false;
+      }
+      
+      // Human frame state filter
+      if (hasHumanFrameFilters) {
+        if (!img.existingLabel || !this.filters.frameStatesHuman.has(img.existingLabel.frameState)) return false;
+      }
+      
+      // AI visibility filter (only if AI good is selected and image is AI good)
+      const aiGood = img.analysis.frame_state === 'good';
+      if (hasAIFrameFilters && this.filters.frameStatesAI.has('good') && aiGood) {
+        if (this.filters.visibilityTypesAI.size > 0) {
+          if (!img.analysis.visibility || !this.filters.visibilityTypesAI.has(img.analysis.visibility)) {
+            return false;
+          }
         }
       }
       
-      // Confidence threshold filters
-      if (this.filters.frameConfidenceThreshold < 100) {
-        const frameStateConf = (img.analysis.frame_state_probability || 0) * 100;
-        if (frameStateConf >= this.filters.frameConfidenceThreshold) return false;
+      // Human visibility filter (only if Human good is selected and image has human good label)
+      const humanGood = img.existingLabel?.frameState === 'good';
+      if (hasHumanFrameFilters && this.filters.frameStatesHuman.has('good') && humanGood) {
+        if (this.filters.visibilityTypesHuman.size > 0) {
+          if (!img.existingLabel.visibility || !this.filters.visibilityTypesHuman.has(img.existingLabel.visibility)) {
+            return false;
+          }
+        }
       }
       
-      if (img.analysis.frame_state === 'good' && this.filters.visibilityConfidenceThreshold < 100) {
+      // Confidence range filters (only apply to AI)
+      const frameStateConf = (img.analysis.frame_state_probability || 0) * 100;
+      if (frameStateConf < this.filters.frameConfidenceMin || frameStateConf > this.filters.frameConfidenceMax) {
+        return false;
+      }
+      
+      if (aiGood) {
         if (img.analysis.visibility_prob != null) {
           const visibilityConf = img.analysis.visibility_prob * 100;
-          if (visibilityConf >= this.filters.visibilityConfidenceThreshold) return false;
+          if (visibilityConf < this.filters.visibilityConfidenceMin || visibilityConf > this.filters.visibilityConfidenceMax) {
+            return false;
+          }
         }
       }
       
@@ -347,18 +377,7 @@ export class AdminLabelingController {
     try {
       const response = await submitLabelBatch(this.labelBatch);
       
-      // Update existing labels cache
-      this.labelBatch.forEach(label => {
-        this.dataStore.setLabel(label.imageId, {
-          imageId: label.imageId,
-          frameState: label.frameState,
-          visibility: label.visibility,
-          labelSource: 'admin',
-          updatedAt: new Date().toISOString(),
-        });
-      });
-      
-      // Clear batch
+      // Clear batch (labels will be refreshed from database by caller)
       const submittedCount = this.labelBatch.length;
       this.labelBatch = [];
       
@@ -383,6 +402,58 @@ export class AdminLabelingController {
   async updateFilter(key, value) {
     this.filters[key] = value;
     await this.applyFilters();
+  }
+
+  /**
+   * Refresh labels from database for currently filtered images
+   * Does NOT re-run filtering - just updates label data
+   */
+  async refreshLabelsFromDatabase() {
+    if (!this.filters.startDate || !this.filters.endDate) {
+      throw new Error('No date range loaded');
+    }
+
+    try {
+      // Fetch fresh labels from database
+      const labelsResponse = await fetchAdminLabels(this.filters.startDate, this.filters.endDate);
+      
+      // Track how many labels were updated
+      let updatedCount = 0;
+      
+      // Update labels in dataStore
+      labelsResponse.labels.forEach(label => {
+        this.dataStore.setLabel(label.imageId, label);
+      });
+      
+      // Update existingLabel in filteredImages array
+      this.filteredImages.forEach(img => {
+        const freshLabel = this.dataStore.getLabel(img.imageId);
+        const hadLabel = !!img.existingLabel;
+        const hasLabel = !!freshLabel;
+        
+        if (hadLabel !== hasLabel || 
+            (hadLabel && hasLabel && (
+              img.existingLabel.frameState !== freshLabel.frameState ||
+              img.existingLabel.visibility !== freshLabel.visibility
+            ))) {
+          updatedCount++;
+        }
+        
+        img.existingLabel = freshLabel || null;
+      });
+
+      if (this.onLabelsRefreshed) {
+        this.onLabelsRefreshed({ success: true, updated: updatedCount });
+      }
+      
+      return { updated: updatedCount };
+    } catch (err) {
+      console.error('Failed to refresh labels:', err);
+      if (this.onLabelsRefreshed) {
+        this.onLabelsRefreshed({ success: false, error: err.message });
+      }
+      throw err;
+    }
   }
 
   /**
