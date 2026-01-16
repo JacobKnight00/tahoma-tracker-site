@@ -22,11 +22,15 @@ export const config = {
   // For local dev, use placeholder
   // For production, use CloudFront or S3 URL
   imageBaseUrl: 'https://deaf937kouf5m.cloudfront.net',
-  // Versioned analysis path segment (used for timeline/history fetches)
-  analysisVersion: 'v1',
+
+  // Model configuration
+  models: {
+    current: 'v2',
+    available: ['v1', 'v2'],
+  },
 
   // Date range for historical data
-  historicalDataStart: '2025-01-01',
+  historicalDataStart: '2023-01-01',
 
   // Time window (local time)
   timeWindow: {

@@ -4,8 +4,7 @@
 import { config } from '../../config/config.js';
 
 // Track the current analysis path version (default to config)
-const DEFAULT_ANALYSIS_VERSION = config.analysisVersion || 'v1';
-let cachedAnalysisVersion = DEFAULT_ANALYSIS_VERSION;
+let cachedAnalysisVersion = config.models.current;
 
 const IMAGE_ID_REGEX = /^(\d{4})\/(\d{2})\/(\d{2})\/(\d{2})(\d{2})$/;
 
@@ -145,8 +144,9 @@ function resolveImageId(source = {}) {
   }
 }
 
-function normalizeData(raw = {}) {
+function normalizeData(raw = {}, version = null) {
   const data = { ...raw };
+  const modelVersion = version || config.models.current;
 
   if (data.analysis_s3_key) {
     updateCachedAnalysisVersionFromKey(data.analysis_s3_key);
@@ -185,7 +185,7 @@ function normalizeData(raw = {}) {
     visibilityProb = visibilityProbs[visibility];
   }
 
-  const modelVersion =
+  const modelVersionFromData =
     data.model_version ||
     data.visibility_model_version ||
     data.frame_state_model_version ||
@@ -203,9 +203,9 @@ function normalizeData(raw = {}) {
     visibility: visibility ?? null,
     visibility_prob: visibilityProb ?? null,
     visibility_probabilities: visibilityProbs,
-    model_version: modelVersion,
-    analysis_version: cachedAnalysisVersion,
-    analysis_s3_key: data.analysis_s3_key || (imageId ? `analysis/${cachedAnalysisVersion}/${imageId}.json` : null),
+    model_version: modelVersionFromData,
+    analysis_version: modelVersion,
+    analysis_s3_key: data.analysis_s3_key || (imageId ? `analysis/${modelVersion}/${imageId}.json` : null),
     cropped_s3_key: data.cropped_s3_key || (imageId ? `needle-cam/cropped-images/${imageId}.jpg` : null),
     pano_s3_key: data.pano_s3_key || (imageId ? `needle-cam/panos/${imageId}.jpg` : null),
   };
@@ -406,12 +406,13 @@ export async function submitLabelBatch(labels, options = {}) {
 /**
  * Fetch analysis data for a specific timestamp
  * @param {string} ts - ISO timestamp
+ * @param {string} version - Model version (optional, defaults to current)
  * @returns {Promise<Object>} Analysis data
  */
-export async function fetchAnalysis(ts) {
+export async function fetchAnalysis(ts, version = null) {
   const imageId = buildImageId(ts);
-  const version = cachedAnalysisVersion || DEFAULT_ANALYSIS_VERSION;
-  const path = `analysis/${version}/${imageId}.json`;
+  const modelVersion = version || config.models.current;
+  const path = `analysis/${modelVersion}/${imageId}.json`;
   const url = new URL(path, config.imageBaseUrl);
 
   const response = await fetch(url.toString(), {
@@ -427,7 +428,7 @@ export async function fetchAnalysis(ts) {
     ...raw,
     image_id: raw.image_id || imageId,
     analysis_s3_key: raw.analysis_s3_key || path,
-  });
+  }, modelVersion);
 }
 
 /**
@@ -494,11 +495,13 @@ export async function fetchImage(keyOrTimestamp) {
 /**
  * Fetch daily manifest listing all available images for a date
  * @param {Date|string} dateInput - Date object or date in YYYY-MM-DD format
+ * @param {string} version - Model version (optional, defaults to current)
  * @returns {Promise<Object>} Manifest with images array and summary
  */
-export async function fetchDailyManifest(dateInput) {
-  let dateStr;
+export async function fetchDailyManifest(dateInput, version = null) {
+  const modelVersion = version || config.models.current;
   
+  let dateStr;
   if (dateInput instanceof Date) {
     const year = dateInput.getFullYear();
     const month = String(dateInput.getMonth() + 1).padStart(2, '0');
@@ -508,16 +511,15 @@ export async function fetchDailyManifest(dateInput) {
     dateStr = dateInput;
   }
   
-  // Check if this is today - use current.json
   const today = new Date();
   const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
   
   let path;
-  if (dateStr === todayStr) {
+  if (dateStr === todayStr && modelVersion === config.models.current) {
     path = 'manifests/daily/current.json';
   } else {
     const [year, month, day] = dateStr.split('-');
-    path = `manifests/daily/${year}/${month}/${day}.json`;
+    path = `manifests/daily/${modelVersion}/${year}/${month}/${day}.json`;
   }
   
   const url = new URL(path, config.imageBaseUrl);
@@ -534,20 +536,21 @@ export async function fetchDailyManifest(dateInput) {
  * Fetch monthly manifest for calendar color-coding
  * @param {number} year - Year (e.g., 2025)
  * @param {number} month - Month (1-12)
+ * @param {string} version - Model version (optional, defaults to current)
  * @returns {Promise<Object>} Monthly manifest with days object
  */
-export async function fetchMonthlyManifest(year, month) {
+export async function fetchMonthlyManifest(year, month, version = null) {
+  const modelVersion = version || config.models.current;
   const monthStr = String(month).padStart(2, '0');
   
-  // Check if this is current month - use current.json
   const today = new Date();
   const isCurrentMonth = year === today.getFullYear() && month === (today.getMonth() + 1);
   
   let path;
-  if (isCurrentMonth) {
+  if (isCurrentMonth && modelVersion === config.models.current) {
     path = 'manifests/monthly/current.json';
   } else {
-    path = `manifests/monthly/${year}/${monthStr}.json`;
+    path = `manifests/monthly/${modelVersion}/${year}/${monthStr}.json`;
   }
   
   const url = new URL(path, config.imageBaseUrl);

@@ -17,10 +17,22 @@ export class MetadataDisplay {
     clearElement(this.container);
 
     const isFrameGood = data.frame_state === 'good';
-    const visibilityValue = isFrameGood ? data.visibility : null;
-    const visibilityConfidence = isFrameGood ? data.visibility_prob : null;
+    const visibilityValue = isFrameGood 
+      ? (data.visibility ? snakeToTitle(String(data.visibility)) : '--')
+      : 'N/A - bad frame';
+    const visibilityConfidence = isFrameGood && data.visibility_prob !== null && data.visibility_prob !== undefined
+      ? formatPercent(data.visibility_prob, 1)
+      : '--';
 
     const items = [
+      {
+        label: 'Visibility',
+        value: visibilityValue,
+      },
+      {
+        label: 'Visibility Confidence',
+        value: visibilityConfidence,
+      },
       {
         label: 'Frame State',
         value: data.frame_state ? snakeToTitle(data.frame_state) : '--',
@@ -29,18 +41,6 @@ export class MetadataDisplay {
         label: 'Frame Confidence',
         value: data.frame_state_probability !== null && data.frame_state_probability !== undefined
           ? formatPercent(data.frame_state_probability, 1)
-          : '--',
-      },
-      {
-        label: 'Visibility',
-        value: visibilityValue !== null && visibilityValue !== undefined
-          ? snakeToTitle(String(visibilityValue))
-          : '--',
-      },
-      {
-        label: 'Visibility Confidence',
-        value: visibilityConfidence !== null && visibilityConfidence !== undefined
-          ? formatPercent(visibilityConfidence, 1)
           : '--',
       },
       {

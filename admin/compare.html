@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Model Comparison | Tahoma Tracker</title>
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+
+  <!-- Stylesheets -->
+  <link rel="stylesheet" href="/css/reset.css">
+  <link rel="stylesheet" href="/css/variables.css">
+  <link rel="stylesheet" href="/css/base.css">
+  <link rel="stylesheet" href="/css/components.css">
+  <link rel="stylesheet" href="/css/pages/admin.css">
+</head>
+<body class="admin-page">
+  <div class="admin-container">
+    <!-- Header -->
+    <header class="admin-header">
+      <h1 class="admin-header__title">Model Comparison</h1>
+      <div class="admin-header__controls">
+        <a href="/admin/label.html" class="button button--ghost">Labeling</a>
+        <a href="/" class="button button--ghost">Home</a>
+      </div>
+    </header>
+
+    <div class="admin-layout">
+      <!-- Main Content -->
+      <div class="admin-layout__main">
+        <!-- Filter Panel -->
+        <div class="filter-panel">
+          <div class="filter-panel__primary">
+            <div class="filter-group filter-group--dates">
+              <input type="date" id="start-date" class="input input--compact">
+              <span class="filter-separator">to</span>
+              <input type="date" id="end-date" class="input input--compact">
+            </div>
+            <div class="filter-group filter-group--models">
+              <select id="model-a" class="input input--compact"></select>
+              <span class="filter-separator">vs</span>
+              <select id="model-b" class="input input--compact"></select>
+            </div>
+            <button id="apply-filters" class="button button--primary">Compare</button>
+            <button id="reset-filters" class="button button--ghost">Reset</button>
+          </div>
+          
+          <details class="filter-details">
+            <summary class="filter-summary">Advanced Filters</summary>
+            <div class="filter-panel__advanced">
+              <div class="filter-group">
+                <label>Show only:
+                  <span class="tooltip" title="Filter to specific comparison results.">ℹ️</span>
+                </label>
+                <div class="filter-group--checkboxes">
+                  <label><input type="checkbox" id="filter-disagree-frame" checked> Frame state differs</label>
+                  <label><input type="checkbox" id="filter-disagree-visibility" checked> Visibility differs</label>
+                  <label><input type="checkbox" id="filter-agree" checked> Models agree</label>
+                </div>
+              </div>
+              
+              <div class="filter-group">
+                <label>Frame states to include:</label>
+                <div class="filter-group--checkboxes">
+                  <label><input type="checkbox" id="frame-good" checked> Good</label>
+                  <label><input type="checkbox" id="frame-off-target" checked> Off-target</label>
+                  <label><input type="checkbox" id="frame-dark" checked> Dark</label>
+                  <label><input type="checkbox" id="frame-bad" checked> Bad</label>
+                </div>
+              </div>
+              
+              <div class="filter-group">
+                <label>Confidence difference threshold:
+                  <span class="tooltip" title="Show images where confidence differs by at least this amount.">ℹ️</span>
+                </label>
+                <div class="range-inputs">
+                  <input type="number" id="confidence-diff-min" min="0" max="100" value="0" class="input input--tiny">
+                  <span>% minimum difference</span>
+                </div>
+              </div>
+            </div>
+          </details>
+        </div>
+
+        <!-- Summary Stats -->
+        <div class="compare-summary" id="compare-summary" style="display: none;">
+          <div class="compare-summary__stat">
+            <span class="stat-value" id="stat-total">0</span>
+            <span class="stat-label">Total Images</span>
+          </div>
+          <div class="compare-summary__stat">
+            <span class="stat-value" id="stat-agree">0</span>
+            <span class="stat-label">Agree</span>
+          </div>
+          <div class="compare-summary__stat">
+            <span class="stat-value" id="stat-disagree-frame">0</span>
+            <span class="stat-label">Frame Differs</span>
+          </div>
+          <div class="compare-summary__stat">
+            <span class="stat-value" id="stat-disagree-visibility">0</span>
+            <span class="stat-label">Visibility Differs</span>
+          </div>
+          <div class="compare-summary__stat">
+            <span class="stat-value" id="stat-agreement-rate">0%</span>
+            <span class="stat-label">Agreement Rate</span>
+          </div>
+        </div>
+
+        <!-- Image Display -->
+        <div class="image-section">
+          <div id="compare-image-viewer" class="admin-image-viewer">
+            <div class="admin-image-viewer__loading">
+              <div class="spinner"></div>
+              <p>Select date range and models to compare</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Comparison Details -->
+        <div id="compare-details" class="compare-details" style="display: none;">
+          <div class="compare-details__header">
+            <span><strong>Image:</strong> <span id="image-id">--</span></span>
+            <span><strong>Time:</strong> <span id="image-time">--</span></span>
+            <div class="progress-compact">
+              <span id="progress-text">0 of 0</span>
+            </div>
+          </div>
+          
+          <div class="compare-details__models">
+            <div class="model-result" id="model-a-result">
+              <h4 id="model-a-label">Model A</h4>
+              <div class="model-result__predictions"></div>
+            </div>
+            <div class="model-result" id="model-b-result">
+              <h4 id="model-b-label">Model B</h4>
+              <div class="model-result__predictions"></div>
+            </div>
+          </div>
+          
+          <div class="compare-details__diff" id="diff-section" style="display: none;">
+            <h4>Differences</h4>
+            <div id="diff-content"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Navigation Sidebar -->
+      <div class="admin-layout__controls">
+        <div class="control-group control-group--compact">
+          <h3>Navigation</h3>
+          <div class="button-grid--compact">
+            <button data-action="nav-prev" class="button button--control" disabled>
+              <kbd>←</kbd> Prev
+            </button>
+            <button data-action="nav-next" class="button button--control" disabled>
+              Next <kbd>→</kbd>
+            </button>
+          </div>
+        </div>
+        
+        <div class="control-group control-group--compact">
+          <h3>Jump To</h3>
+          <div class="button-grid--actions">
+            <button data-action="next-disagree" class="button button--ghost button--small" disabled>
+              Next Disagreement
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="/js/admin/compare.js"></script>
+</body>
+</html>
