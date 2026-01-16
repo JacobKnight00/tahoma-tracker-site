@@ -109,6 +109,10 @@ export class TimelineViewer {
       
       this.calendar.mount(this.calendarContainer);
       console.log('Calendar initialized successfully');
+      
+      // Preload current month's manifest for calendar navigation
+      const now = new Date();
+      this.getMonthlyManifest(now.getFullYear(), now.getMonth() + 1);
     } catch (error) {
       console.error('Failed to initialize calendar:', error);
     }
