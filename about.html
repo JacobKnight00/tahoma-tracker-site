@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="About Tahoma Tracker - an ML-powered Mt. Rainier visibility tracker.">
+  <title>About | Tahoma Tracker</title>
+
+  <!-- Favicon -->
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+
+  <!-- Stylesheets -->
+  <link rel="stylesheet" href="/css/reset.css">
+  <link rel="stylesheet" href="/css/variables.css">
+  <link rel="stylesheet" href="/css/base.css">
+  <link rel="stylesheet" href="/css/components.css">
+  <link rel="stylesheet" href="/css/pages/about.css">
+</head>
+<body>
+  <main class="container">
+    <!-- Header -->
+    <section class="status-section" aria-label="About page">
+      <div class="status-header">
+        <h1 class="page-title">About</h1>
+        <a href="/" class="back-link">&larr; Back to Tahoma</a>
+      </div>
+    </section>
+
+    <!-- Content -->
+    <article class="about-content">
+      <section class="about-section">
+        <p>
+          <strong>Is the mountain out?</strong> is a question locals have been asking for decades.
+          Views of Mount Rainier (or <a href="https://en.wikipedia.org/wiki/Mount_Rainier#Name" target="_blank" rel="noopener">Tahoma</a>
+          as it was called by local Indigenous peoples) are always a gift and a joy, especially during the
+          <a href="https://en.wikipedia.org/wiki/Pacific_Northwest#The_Big_Dark" target="_blank" rel="noopener">Big Dark</a>,
+          the time of year I started working on this project. As a local developer, I thought it'd be fun
+          to try to answer that question automatically as a way to explore ML implementations.
+        </p>
+      </section>
+
+      <section class="about-section">
+        <h2>How it works</h2>
+        <p>
+          It pulls panorama images provided by the Space Needle about every 10 minutes and crops them
+          down to where the mountain is usually placed within the frame. From there, I trained models to:
+        </p>
+        <ol class="about-list">
+          <li>Detect if the frame is good, or if it is bad (blurry, off-target, or dark)</li>
+          <li>If it's a good frame, classify whether the mountain is out, partially out, or not out</li>
+        </ol>
+        <p>This data is then pulled into the website to provide a history of when the mountain was out.</p>
+
+        <div class="about-diagram">
+          <div class="diagram-flow">
+            <div class="diagram-step">
+              <div class="diagram-box">Space Needle Webcam</div>
+              <div class="diagram-label">every 10 min</div>
+            </div>
+            <div class="diagram-arrow">&rarr;</div>
+            <div class="diagram-step">
+              <div class="diagram-box">AWS Lambda</div>
+              <div class="diagram-label">scrape + classify</div>
+            </div>
+            <div class="diagram-arrow">&rarr;</div>
+            <div class="diagram-step">
+              <div class="diagram-box">S3 / CloudFront</div>
+              <div class="diagram-label">store / cache</div>
+            </div>
+            <div class="diagram-arrow">&rarr;</div>
+            <div class="diagram-step">
+              <div class="diagram-box">Website</div>
+              <div class="diagram-label">you're here!</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="about-section">
+        <h2>What I learned</h2>
+        <ul class="about-list">
+          <li>
+            <strong>Frontend development</strong> was totally new to me. This involved utilizing coding
+            assistants like Claude, Codex, and Copilot, and learning how to interface frontend websites
+            with backend resources through CDN.
+          </li>
+          <li>
+            <strong>ML pipelines</strong> taught me a lot about the difficulties of providing good training
+            data. I built a separate admin page to rapidly label thousands of images, then added comparison
+            filters to clean up disagreements between manual labels and original model predictions. I also
+            started exploring how to set up training pipelines from the collected data for generating new models.
+          </li>
+        </ul>
+      </section>
+
+      <section class="about-section">
+        <h2>Acknowledgments</h2>
+        <p>
+          I want to thank the Space Needle for providing the images that I use. When I first started,
+          I was trying to figure out how I would set up a camera from my apartment to capture images.
+          It would have taken months before I had enough to make valuable models. Being able to go back
+          and collect historical images was incredibly valuable.
+        </p>
+      </section>
+
+      <section class="about-section">
+        <h2>About me</h2>
+        <p>
+          I'm Jacob Knight, a Software Development Engineer based in Seattle with experience in distributed
+          systems development. You can find me on LinkedIn <a href="https://www.linkedin.com/in/jacobfk/" target="_blank" rel="noopener">here</a>.
+        </p>
+        <p>
+          This was just a side project for fun and I've got some ideas on things to add (looking into an
+          Out Predictor using weather data), but if you want to provide any suggestions, feel free to send a message.
+        </p>
+      </section>
+    </article>
+
+    <!-- Footer -->
+    <footer class="footer">
+      <p class="footer__text">
+        <a href="/">Back to Tahoma</a>
+      </p>
+    </footer>
+  </main>
+</body>
+</html>
