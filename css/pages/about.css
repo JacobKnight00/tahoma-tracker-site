@@ -67,11 +67,13 @@
 }
 
 .about-section a {
-  color: var(--color-primary);
-  text-decoration: none;
+  color: var(--color-nps-brown);
+  text-decoration: underline;
+  text-underline-offset: 2px;
 }
 
 .about-section a:hover {
+  color: var(--color-nps-brown-dark);
   text-decoration: underline;
 }
 

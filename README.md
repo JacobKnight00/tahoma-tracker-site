@@ -8,150 +8,192 @@ This is a simple, static website built with vanilla HTML, CSS, and JavaScript. I
 - Displays the current visibility status of Mt. Rainier
 - Shows the latest webcam image from the Space Needle
 - Allows crowdsourced label corrections
-- Provides admin tools for rapid labeling and review
+- Provides admin tools for rapid labeling and model comparison
 
 ## Technology Stack
 
 - **HTML5** - Semantic, accessible markup
 - **CSS3** - Modern styling with CSS custom properties
 - **JavaScript (ES6 modules)** - Component-based architecture
-- **Hosting** - Cloudflare Pages
-- **Backend** - AWS (Lambda, S3, DynamoDB, API Gateway)
+- **Hosting** - Cloudflare Pages (with Pages Functions for API proxy)
+- **Backend** - AWS (Lambda, S3, DynamoDB)
 
 ## Project Structure
 
 ```
 tahomasite/
 ├── index.html              # Public status page
+├── about.html              # About the project page
 ├── admin/
-│   ├── label.html         # Admin rapid labeling interface
-│   └── review.html        # Admin review interface
+│   ├── label.html          # Admin rapid labeling interface
+│   └── compare.html        # Model comparison interface
 ├── css/
-│   ├── reset.css          # CSS reset
-│   ├── variables.css      # Design tokens (colors, spacing, etc.)
-│   ├── base.css           # Base styles (typography, layout)
-│   ├── components.css     # Reusable components (buttons, cards)
+│   ├── reset.css           # CSS reset
+│   ├── variables.css       # Design tokens (colors, spacing, etc.)
+│   ├── base.css            # Base styles (typography, layout)
+│   ├── components.css      # Reusable components (buttons, cards)
 │   └── pages/
-│       ├── home.css       # Home page specific styles
-│       └── admin.css      # Admin pages specific styles
+│       ├── home.css        # Home page specific styles
+│       ├── about.css       # About page specific styles
+│       └── admin.css       # Admin pages specific styles
 ├── js/
-│   ├── main.js            # Entry point for home page
+│   ├── main.js             # Entry point for home page
 │   ├── admin/
-│   │   ├── label.js       # Admin labeling page entry point
-│   │   └── review.js      # Admin review page entry point
+│   │   ├── label.js                  # Admin labeling page entry point
+│   │   ├── AdminLabelingController.js # Labeling state management
+│   │   ├── compare.js                # Model comparison page entry point
+│   │   └── CompareController.js      # Comparison state management
 │   ├── lib/
-│   │   └── api.js         # API client (fetch data, submit labels)
+│   │   └── api.js          # API client (fetch data, submit labels)
 │   ├── components/
-│   │   ├── StatusDisplay.js      # Status indicator component
-│   │   ├── ImageViewer.js        # Image display component
-│   │   ├── MetadataDisplay.js    # Metadata display component
-│   │   └── LabelForm.js          # Labeling form component
+│   │   ├── StatusDisplay.js    # Status indicator component
+│   │   ├── ImageViewer.js      # Image display component
+│   │   ├── MetadataDisplay.js  # Metadata display component
+│   │   ├── LabelForm.js        # Labeling form component
+│   │   ├── TimelineViewer.js   # Timeline/playback component
+│   │   └── CalendarPicker.js   # Date selection component
 │   └── utils/
-│       ├── format.js      # Formatting utilities (dates, percentages)
-│       ├── dom.js         # DOM manipulation helpers
-│       └── keyboard.js    # Keyboard shortcut handler
+│       ├── format.js       # Formatting utilities (dates, percentages)
+│       ├── dom.js          # DOM manipulation helpers
+│       └── keyboard.js     # Keyboard shortcut handler
+├── functions/              # Cloudflare Pages Functions (API proxy)
+│   └── api/
+│       ├── labels.js       # Crowdsource label submission proxy
+│       └── admin/
+│           ├── labels.js   # Admin labels API proxy
+│           └── labels/
+│               └── batch.js # Admin batch submission proxy
+├── config/
+│   └── config.js           # Configuration (API paths, settings)
 ├── assets/
 │   └── images/
-│       └── placeholder.jpg
-├── config/
-│   └── config.js          # Configuration (API URLs, settings)
-├── latest.json            # Test data for local development
-├── .gitignore
 └── README.md
 ```
+
+## Security
+
+### Admin Page Protection
+
+Admin pages (`/admin/*`) are protected by **Cloudflare Access** using email OTP authentication. This operates at the Cloudflare edge—unauthenticated requests never reach the site.
+
+### API Proxy Pattern
+
+Backend Lambda Function URLs are never exposed to the browser. Instead, API calls go through Cloudflare Pages Functions that:
+1. Read Lambda URLs from environment variables (server-side only)
+2. Forward requests with an `X-Api-Secret` header for backend validation
+3. Return responses to the client
+
+This provides defense-in-depth: even if someone bypasses Cloudflare Access, they can't call the Lambda directly without the shared secret.
 
 ## Local Development
 
 ### Prerequisites
 
 - A modern web browser (Chrome, Firefox, Safari, Edge)
-- Python 3 (for local server) or a similar tool
+- Python 3 (for simple static server) or Node.js (for full API testing with Wrangler)
 
-### Running Locally
+### Option A: UI-Only Testing (Simple)
 
-1. **Clone the repository**:
+Use Python's built-in server to view the UI. API calls will fail, but you can test layouts and navigation:
+
+```bash
+python3 -m http.server 8080
+```
+
+Open `http://localhost:8080` in your browser.
+
+### Option B: Full Local Testing with APIs (Wrangler)
+
+To test the API proxy functions locally, use Cloudflare's Wrangler CLI:
+
+1. **Install Wrangler** (if not already):
    ```bash
-   cd ~/Documents/projects/mtrainier/tahomasite
+   npm install -g wrangler
    ```
 
-2. **Start a local server (use ports 8080–8090 for API access)**:
+2. **Create `.dev.vars`** file in the project root (this is gitignored):
+   ```
+   SUBMIT_LABEL_LAMBDA_URL=https://your-label-lambda.lambda-url.us-west-2.on.aws/
+   ADMIN_LABELS_LAMBDA_URL=https://your-admin-lambda.lambda-url.us-west-2.on.aws/
+   API_SHARED_SECRET=your-secret-here
+   ```
+
+3. **Run with Wrangler**:
    ```bash
-   # Port 8080 is allowed for CORS against the label API
-   python3 -m http.server 8080
+   npx wrangler pages dev . --port 8080
    ```
 
-   Or use VS Code's Live Server extension configured to serve on a port between `8080` and `8090`. Other ports (like 8000) will load the site but the label submission API will be blocked by CORS.
+This runs the Pages Functions locally, so API calls work just like in production.
 
-3. **Open in browser**:
-   ```
-   http://localhost:8080
-   ```
+### Test Pages
 
-4. **Test pages**:
-   - Home page: `http://localhost:8080/`
-   - Admin labeling: `http://localhost:8080/admin/label.html?token=test`
-   - Admin review: `http://localhost:8080/admin/review.html`
+- Home page: `http://localhost:8080/`
+- About page: `http://localhost:8080/about.html`
+- Admin labeling: `http://localhost:8080/admin/label.html`
+- Model comparison: `http://localhost:8080/admin/compare.html`
 
-### Local Development Notes
+### Notes
 
-- The site currently uses a local `latest.json` file for testing
-- Images point to local placeholder
-- Admin pages show placeholder UI (backend API not yet connected)
-- To connect to production backend, update URLs in `config/config.js`
-- **Local API note**: The label submission API CORS allowlist only includes `http://localhost:8080`–`http://localhost:8090`. Use one of these ports when running a local server or the browser will block the API response.
+- Use ports 8080–8090 for CORS compatibility with the Lambda backend
+- With Wrangler, the `.dev.vars` file provides secrets locally (it's gitignored)
+- With Python server, you can browse the UI but API calls will fail
 
 ## Configuration
 
-Edit `config/config.js` to change:
+### Environment Variables (Cloudflare Pages)
 
-- **API endpoints** - Point to production API Gateway URLs
-- **Image base URL** - Point to S3/CloudFront for images
-- **Date ranges** - Historical data start date
-- **Refresh interval** - How often to poll for updates
+Set these in the Cloudflare Pages dashboard under Settings → Environment variables:
 
-Example for production:
+| Variable | Description |
+|----------|-------------|
+| `SUBMIT_LABEL_LAMBDA_URL` | Lambda Function URL for crowdsource label submission |
+| `ADMIN_LABELS_LAMBDA_URL` | Lambda Function URL for admin labels API |
+| `API_SHARED_SECRET` | Shared secret for backend validation (encrypt this) |
+
+### config/config.js
+
+The frontend config uses relative paths that get proxied through Pages Functions:
+
 ```javascript
 export const config = {
   api: {
-    latestUrl: 'https://d123abc.cloudfront.net/latest/latest.json',
-    submitLabelUrl: 'https://api.tahomatracker.com/labels',
-    // ...
+    submitLabelUrl: '/api/labels',
+    adminLabelsUrl: '/api/admin/labels',
+    adminBatchUrl: '/api/admin/labels/batch',
   },
-  imageBaseUrl: 'https://d123abc.cloudfront.net/',
+  imageBaseUrl: 'https://your-cloudfront-distribution.cloudfront.net',
   // ...
 };
 ```
 
+The `imageBaseUrl` points directly to CloudFront (public CDN, no proxy needed).
+
 ## Deployment
 
-### Cloudflare Pages
+### Cloudflare Pages Setup
 
-1. **Create GitHub repository**:
-   ```bash
-   cd ~/Documents/projects/mtrainier/tahomasite
-   git init
-   git add .
-   git commit -m "Initial commit"
-   git remote add origin https://github.com/YOUR_USERNAME/tahomasite.git
-   git push -u origin main
-   ```
-
-2. **Connect to Cloudflare Pages**:
-   - Log in to Cloudflare dashboard
-   - Go to Pages → Create a project
-   - Connect to GitHub repository
+1. **Connect to Cloudflare Pages**:
+   - Log in to Cloudflare dashboard → Pages → Create a project
+   - Connect to your GitHub repository
    - Configure build settings:
      - **Build command**: (leave empty)
      - **Build output directory**: `/`
      - **Root directory**: `/`
 
-3. **Set environment variables** (if needed):
-   - None required for static site
-   - Can use Cloudflare Workers for dynamic config
+2. **Set environment variables**:
+   - Go to Settings → Environment variables
+   - Add `SUBMIT_LABEL_LAMBDA_URL`, `ADMIN_LABELS_LAMBDA_URL`, `API_SHARED_SECRET`
+   - Click "Encrypt" for `API_SHARED_SECRET`
+   - Save
+
+3. **Set up Cloudflare Access** (for admin pages):
+   - Go to Cloudflare Zero Trust → Access → Applications
+   - Create an application for `/admin/*` path
+   - Configure authentication (email OTP recommended)
 
 4. **Deploy**:
    - Push to `main` branch
-   - Cloudflare auto-deploys on every push
+   - Cloudflare auto-deploys and picks up the `functions/` directory
 
 ### Custom Domain (Optional)
 
@@ -164,51 +206,45 @@ export const config = {
 
 - **Status Page** (`/`):
   - Current visibility status (YES/NO/UNKNOWN)
-  - Latest webcam image
+  - Latest webcam image with timeline playback
   - Confidence score and metadata
   - Auto-refreshes every 60 seconds
-  - Crowdsource label correction form (collapsible)
+  - Crowdsource label correction form
+
+- **About Page** (`/about.html`):
+  - Project background and motivation
+  - Technical overview
 
 ### Admin Pages
 
 - **Rapid Labeling** (`/admin/label.html`):
-  - Keyboard-driven interface (G/F/D/B for frame state, O/P/N for visibility)
-  - Two navigation modes (queue, cursor)
-  - Date/time picker for jumping to specific images
-  - Auto-advance after labeling
-
-- **Review** (`/admin/review.html`):
-  - Review "out" and "partial" labels
-  - Quick corrections (confirm, change to partial, change to not out)
+  - Keyboard-driven interface for fast labeling
+  - Advanced filtering by date, confidence, label source
+  - Batch submission with auto-submit at threshold
   - Progress tracking
 
-## Keyboard Shortcuts (Admin Pages)
+- **Model Comparison** (`/admin/compare.html`):
+  - Compare predictions between model versions
+  - Filter by agreement/disagreement
+  - Navigate through differences
 
-### Labeling Page
+## Keyboard Shortcuts (Admin Labeling)
 
-- **Frame State**:
-  - `G` - Mark as Good
-  - `F` - Mark as Off-Target
-  - `D` - Mark as Dark
-  - `B` - Mark as Bad/Blurry
+### Frame State
+- `G` - Mark as Good
+- `F` - Mark as Off-Target
+- `D` - Mark as Dark
+- `B` - Mark as Bad/Blurry
 
-- **Visibility** (only if frame = good):
-  - `O` - Mark as Out (visible)
-  - `P` - Mark as Partial
-  - `N` - Mark as Not Out
+### Visibility (only if frame = good)
+- `O` - Mark as Out (visible)
+- `P` - Mark as Partial
+- `N` - Mark as Not Out
 
-- **Navigation**:
-  - `←` - Previous image
-  - `→` - Next image
-  - `Space` - Next unlabeled image
-  - `?` - Toggle help
-
-### Review Page
-
-- `C` - Confirm label is correct
-- `P` - Change to Partial
-- `N` - Change to Not Out
-- `S` - Skip
+### Navigation
+- `←` / `→` - Previous / Next image
+- `S` - Skip image
+- `Enter` - Submit batch
 
 ## Code Style
 
@@ -222,29 +258,6 @@ export const config = {
 - ES6 modules required (no IE11 support)
 - CSS custom properties required
 
-## TODO
-
-See [Tasks and Roadmap](../ObsidianPersonalVault/Projects/mtrainier/Tasks%20and%20Roadmap.md) for full list.
-
-**MVP (Required)**:
-- [ ] Connect to backend API (Lambda + API Gateway)
-- [ ] Implement S3/CloudFront access for images
-- [ ] Complete admin labeling page (fetch unlabeled images, navigate)
-- [ ] Complete admin review page (fetch labeled images)
-- [ ] Deploy to Cloudflare Pages
-
-**Nice to Have**:
-- [ ] Historical browser page
-- [ ] Manifest-based batch loading for performance
-- [ ] Progressive loading with chunking
-- [ ] Offline mode / service worker
-
 ## License
 
 Personal side project - not for commercial use.
-
-## Links
-
-- **Backend Repository**: `~/Documents/projects/mtrainier/tahomacdk`
-- **POC Code**: `~/Documents/projects/mtrainier/poc`
-- **Documentation**: `~/Documents/ObsidianPersonalVault/Projects/mtrainier/`

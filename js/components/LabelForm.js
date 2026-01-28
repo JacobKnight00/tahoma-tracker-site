@@ -227,7 +227,7 @@ export class LabelForm {
       this.render(); // Re-render to hide form elements
     } catch (error) {
       console.error('Failed to submit correction:', error);
-      this.updateStatusMessage('error', error.message);
+      this.updateStatusMessage('error', 'There was an error submitting your label. Please try again in a moment.');
     } finally {
       this.isSubmitting = false;
       if (this.submitButton) {

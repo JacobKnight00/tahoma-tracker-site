@@ -108,15 +108,15 @@
 }
 
 .status-value__text--positive {
-  color: var(--color-success-dark);
+  color: var(--color-nps-green-light);
 }
 
 .status-value__text--partial {
-  color: var(--color-warning-dark);
+  color: var(--color-nps-brown);
 }
 
 .status-value__text--negative {
-  color: var(--color-nps-brown-dark);
+  color: var(--color-gray-700);
 }
 
 .status-value__text--unknown {

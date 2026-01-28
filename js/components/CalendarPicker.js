@@ -57,16 +57,13 @@ export class CalendarPicker {
    * Mount the calendar to a DOM element
    */
   mount(container) {
-    console.log('CalendarPicker: Mounting to container', container);
     this.container = container;
     this.element = this.createCalendarHTML();
     container.appendChild(this.element);
-    console.log('CalendarPicker: Element appended', this.element);
-    
+
     this.initializeElements();
     this.setupEventListeners();
     this.updateDisplay();
-    console.log('CalendarPicker: Successfully mounted and initialized');
   }
   
   /**

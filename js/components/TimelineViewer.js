@@ -75,17 +75,10 @@ export class TimelineViewer {
     this.statsStreakContainer = document.getElementById('timeline-stats-streak-container');
     this.statsStreak = document.getElementById('timeline-stats-streak');
     
-    console.log('Timeline elements initialized:', {
-      calendarContainer: this.calendarContainer,
-      controlsExpanded: this.controlsExpanded,
-      expandBtn: this.expandBtn,
-      statsContainer: this.statsContainer
-    });
   }
   
   initializeCalendar() {
     if (!this.calendarContainer) {
-      console.log('Calendar container not found - will be initialized when controls expand');
       return;
     }
     
@@ -108,7 +101,6 @@ export class TimelineViewer {
       });
       
       this.calendar.mount(this.calendarContainer);
-      console.log('Calendar initialized successfully');
       
       // Preload current month's manifest for calendar navigation
       const now = new Date();
@@ -119,10 +111,8 @@ export class TimelineViewer {
   }
   
   async handleDateSelect(date) {
-    console.log('Date selected:', date);
     this.currentDate = new Date(date);
     this.currentDate.setHours(0, 0, 0, 0);
-    console.log('Loading frames for date:', this.currentDate);
     await this.loadDate(null, { render: true });
   }
   
@@ -377,7 +367,6 @@ export class TimelineViewer {
         return new Date(parseInt(year), parseInt(month) - 1, parseInt(day), parseInt(hours), parseInt(minutes));
       });
       
-      console.log(`Loaded ${frames.length} frames from manifest for ${manifest.date}`);
       return frames;
       
     } catch (error) {
@@ -692,8 +681,6 @@ export class TimelineViewer {
     const currentFrame = this.frames[this.currentFrameIndex];
     const imageUrl = getImageUrl(currentFrame.toISOString());
     
-    console.log('updateView: Loading image for', formatTime(currentFrame), 'URL:', imageUrl);
-    
     // Update time display
     if (this.timeDisplay) {
       this.timeDisplay.textContent = formatTime(currentFrame);
@@ -805,7 +792,6 @@ export class TimelineViewer {
         this.updateCapturedDisplay(this.frames[this.currentFrameIndex]);
         
         if (options.render) {
-          console.log('Rendering view after loading frames, frame count:', this.frames.length);
           await this.updateView({ skipLoadingState: false });
         } else {
           // Still need to update navigation state even if not rendering
@@ -920,7 +906,7 @@ export class TimelineViewer {
       
       this.playInterval = setInterval(() => {
         this.nextFrame();
-      }, 500);
+      }, config.playbackInterval);
     } else {
       this.playBtn.innerHTML = '▶ Play';
       this.playBtn.classList.remove('playing');
@@ -954,23 +940,17 @@ export class TimelineViewer {
   
   // Toggle expanded controls
   toggleExpanded() {
-    console.log('toggleExpanded called');
     const isExpanded = this.controlsExpanded.style.display !== 'none';
     if (isExpanded) {
       this.controlsExpanded.style.display = 'none';
       this.expandBtn.classList.remove('expanded');
-      console.log('Controls collapsed');
     } else {
       this.controlsExpanded.style.display = 'block';
       this.expandBtn.classList.add('expanded');
-      console.log('Controls expanded');
-      
+
       // Initialize calendar if not already done (when controls are first expanded)
       if (!this.calendar) {
-        console.log('Calendar not initialized yet, initializing now...');
         this.initializeCalendar();
-      } else {
-        console.log('Calendar already initialized');
       }
     }
   }

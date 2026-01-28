@@ -68,8 +68,6 @@ function registerKeyboardShortcuts() {
   // Batch
   keyboard.register('enter', () => submitBatch());
 
-  // Help - commented out for now
-  // keyboard.register('?', () => toggleHelp());
 }
 
 /**
@@ -99,14 +97,6 @@ function registerButtonHandlers() {
   document.querySelector('[data-action="submit-batch"]')?.addEventListener('click', submitBatch);
   document.querySelector('[data-action="refresh-labels"]')?.addEventListener('click', refreshLabels);
 
-  // Help overlay - commented out for now
-  // const helpCloseBtn = document.querySelector('[data-action="close-help"]');
-  // if (helpCloseBtn) {
-  //   helpCloseBtn.addEventListener('click', (e) => {
-  //     e.preventDefault();
-  //     toggleHelp();
-  //   });
-  // }
 }
 
 /**
@@ -462,8 +452,6 @@ function updateAnalysisOverlay(imageData) {
   const predictionLine = document.getElementById('prediction-line');
   const manualLine = document.getElementById('manual-line');
   
-  console.log('Overlay elements:', { overlay, predictionLine, manualLine }); // Debug log
-  
   if (!overlay || !predictionLine || !manualLine) {
     console.warn('Analysis overlay elements not found');
     return;
@@ -474,7 +462,6 @@ function updateAnalysisOverlay(imageData) {
     return;
   }
   
-  console.log('Showing overlay for:', imageData.imageId); // Debug log
   overlay.style.display = 'block';
   
   // Prediction line
@@ -540,8 +527,6 @@ function handleProgressUpdate(progress) {
  */
 async function handleBatchSubmit(result) {
   if (result.success) {
-    console.log(`Batch submitted: ${result.count} labels`);
-    
     // Show success message with auto-submit indicator
     const message = result.auto 
       ? `✓ Auto-submitted ${result.count} labels (batch full)`
@@ -675,17 +660,12 @@ function skipImage() {
  * Submit current batch
  */
 async function submitBatch() {
-  console.log('submitBatch called, hasUnsavedLabels:', controller.hasUnsavedLabels()); // Debug log
-  
   if (!controller.hasUnsavedLabels()) {
-    console.log('No unsaved labels to submit');
     return;
   }
 
   try {
-    console.log('Attempting to submit batch...');
     await controller.submitBatch();
-    console.log('Batch submitted successfully');
   } catch (err) {
     console.error('Failed to submit batch:', err);
     alert(`Failed to submit batch: ${err.message}`);
@@ -724,13 +704,6 @@ function updateNavigationButtons() {
 }
 
 /**
- * Update confidence threshold display
- */
-function updateConfidenceDisplay() {
-  // No longer needed - using number inputs now
-}
-
-/**
  * Clear image context
  */
 function clearImageContext() {
@@ -758,18 +731,6 @@ function formatTime(timeStr) {
 }
 
 /**
- * Toggle help overlay
- */
-function toggleHelp() {
-  const helpOverlay = document.getElementById('help-overlay');
-  if (helpOverlay.hasAttribute('hidden')) {
-    helpOverlay.removeAttribute('hidden');
-  } else {
-    helpOverlay.setAttribute('hidden', '');
-  }
-}
-
-/**
  * Show success message temporarily
  */
 function showSuccessMessage(message) {
@@ -784,8 +745,6 @@ function showSuccessMessage(message) {
   
   // Add to page
   document.body.appendChild(successEl);
-  
-  console.log('Success message added:', message); // Debug log
   
   // Remove after 3 seconds
   setTimeout(() => {

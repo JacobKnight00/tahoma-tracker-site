@@ -19,11 +19,13 @@ function handleApiError(err, userMessage) {
 
 async function handleApiResponse(response, successMessage, processedCount = null) {
   let responseBody = null;
-  try {
-    responseBody = await response.json();
-    console.log('Response body:', responseBody); // Debug log
-  } catch (err) {
-    console.log('Non-JSON response, status:', response.status); // Debug log
+  const contentType = response.headers.get('content-type') || '';
+  if (contentType.includes('application/json')) {
+    try {
+      responseBody = await response.json();
+    } catch (err) {
+      console.warn('Failed to parse JSON response', err);
+    }
   }
 
   if (response.ok || responseBody?.success) {
@@ -39,7 +41,11 @@ async function handleApiResponse(response, successMessage, processedCount = null
     body: responseBody
   });
   
-  const errorMessage = responseBody?.error || responseBody?.message || response.statusText || 'Something went wrong. Please try again.';
+  const fallbackMessage = response.status >= 500
+    ? 'Unable to reach the server right now. Please try again soon.'
+    : 'There was an error submitting your request. Please try again.';
+
+  const errorMessage = responseBody?.error || responseBody?.message || fallbackMessage;
   throw new Error(errorMessage);
 }
 
@@ -298,44 +304,6 @@ export async function submitLabel(labelData) {
 }
 
 /**
- * Fetch list of unlabeled images
- * @param {number} limit - Max number of results
- * @returns {Promise<Array>} List of timestamps
- */
-export async function fetchUnlabeled(limit = 100) {
-  const url = new URL(config.api.unlabeledUrl, window.location.origin);
-  url.searchParams.set('limit', limit);
-
-  const response = await fetch(url.toString());
-
-  if (!response.ok) {
-    throw new Error(`Failed to fetch unlabeled images: ${response.statusText}`);
-  }
-
-  return response.json();
-}
-
-/**
- * Fetch labels for a date range
- * @param {string} startDate - Start date (YYYY-MM-DD)
- * @param {string} endDate - End date (YYYY-MM-DD)
- * @returns {Promise<Array>} List of labels
- */
-export async function fetchLabels(startDate, endDate) {
-  const url = new URL(config.api.labelsUrl, window.location.origin);
-  url.searchParams.set('start_date', startDate);
-  url.searchParams.set('end_date', endDate);
-
-  const response = await fetch(url.toString());
-
-  if (!response.ok) {
-    throw new Error(`Failed to fetch labels: ${response.statusText}`);
-  }
-
-  return response.json();
-}
-
-/**
  * Fetch admin labels for a date range with filtering options
  * @param {string} startDate - Start date (YYYY-MM-DD)
  * @param {string} endDate - End date (YYYY-MM-DD)
@@ -345,7 +313,7 @@ export async function fetchLabels(startDate, endDate) {
  * @returns {Promise<Object>} Response with labels array and count
  */
 export async function fetchAdminLabels(startDate, endDate, options = {}) {
-  const url = new URL(config.api.adminLabelsUrl);
+  const url = new URL(config.api.adminLabelsUrl, window.location.origin);
   url.searchParams.set('startDate', startDate);
   url.searchParams.set('endDate', endDate);
   
@@ -378,8 +346,6 @@ export async function submitLabelBatch(labels, options = {}) {
     updatedBy: options.updatedBy || 'admin_user',
   };
 
-  console.log('Submitting batch:', payload); // Debug log
-
   let response;
   try {
     response = await fetch(config.api.adminBatchUrl, {
@@ -391,12 +357,7 @@ export async function submitLabelBatch(labels, options = {}) {
       mode: 'cors',
       cache: 'no-store',
     });
-    
-    console.log('Response status:', response.status); // Debug log
-    console.log('Response headers:', Object.fromEntries(response.headers.entries())); // Debug log
-    
   } catch (err) {
-    console.error('Network error:', err); // Debug log
     return handleApiError(err, 'Unable to connect. Please check your internet and try again.');
   }
 
