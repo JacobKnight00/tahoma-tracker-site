@@ -5,7 +5,6 @@ import { AdminLabelingController } from './AdminLabelingController.js';
 import { ImageViewer } from '../components/ImageViewer.js';
 import { snakeToTitle } from '../utils/format.js';
 import { createKeyboardShortcuts } from '../utils/keyboard.js';
-import { config } from '../../config/config.js';
 
 // State
 let controller;

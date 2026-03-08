@@ -10,6 +10,10 @@ export class ImageViewer {
     this.onNavigate = null; // Callback for navigation events
   }
 
+  getWrapper() {
+    return this.container.querySelector('.image-viewer__wrapper');
+  }
+
   /**
    * Set navigation callback and state
    * @param {Function} callback - Function to call for navigation (direction: 'prev' | 'next')
@@ -25,7 +29,7 @@ export class ImageViewer {
    * @param {Object} state - Navigation state { hasPrev: boolean, hasNext: boolean }
    */
   updateNavigationArrows(state) {
-    const wrapper = this.container.querySelector('.image-viewer__wrapper');
+    const wrapper = this.getWrapper();
     if (!wrapper) return;
 
     // Remove existing arrows
@@ -64,7 +68,7 @@ export class ImageViewer {
    * @param {Object} existingLabel - Existing label data { frameState, visibility, labelSource }
    */
   updateLabelPills(existingLabel) {
-    const wrapper = this.container.querySelector('.image-viewer__wrapper');
+    const wrapper = this.getWrapper();
     if (!wrapper) return;
 
     // Remove existing pills overlay
@@ -165,6 +169,30 @@ export class ImageViewer {
     }
   }
 
+  setStatusBanner(message) {
+    const wrapper = this.getWrapper();
+    if (!wrapper) return;
+
+    const existingBanner = wrapper.querySelector('.image-viewer__status-banner');
+    if (!message) {
+      existingBanner?.remove();
+      return;
+    }
+
+    if (existingBanner) {
+      existingBanner.textContent = message;
+      return;
+    }
+
+    const banner = createElement('div', { class: 'image-viewer__status-banner' });
+    banner.textContent = message;
+    wrapper.appendChild(banner);
+  }
+
+  clearStatusBanner() {
+    this.setStatusBanner('');
+  }
+
   /**
    * Show placeholder with spinner by clearing current image
    */
@@ -202,7 +230,7 @@ export class ImageViewer {
     }
 
     // Reuse existing wrapper or create new one
-    let wrapper = this.container.querySelector('.image-viewer__wrapper');
+    let wrapper = this.getWrapper();
     if (!wrapper) {
       clearElement(this.container);
       wrapper = createElement('div', { class: 'image-viewer__wrapper' });
@@ -223,20 +251,23 @@ export class ImageViewer {
       loading: 'eager',
     });
 
-    img.addEventListener('load', () => {
-      // Remove spinner and loading overlay
-      const spinner = wrapper.querySelector('.image-viewer__spinner');
-      if (spinner) spinner.remove();
-      this.removeLoadingOverlay();
-      img.classList.remove('image-viewer__img--loading');
-    });
+    return new Promise((resolve) => {
+      img.addEventListener('load', () => {
+        const spinner = wrapper.querySelector('.image-viewer__spinner');
+        if (spinner) spinner.remove();
+        this.removeLoadingOverlay();
+        img.classList.remove('image-viewer__img--loading');
+        resolve(true);
+      });
 
-    img.addEventListener('error', (e) => {
-      console.error('ImageViewer.render: Image failed to load', e);
-      this.renderError('Failed to load image');
-    });
+      img.addEventListener('error', (e) => {
+        console.error('ImageViewer.render: Image failed to load', e);
+        this.renderError('Failed to load image');
+        resolve(false);
+      });
 
-    wrapper.appendChild(img);
+      wrapper.appendChild(img);
+    });
   }
 
   /**
@@ -248,7 +279,7 @@ export class ImageViewer {
    */
   renderUrl(url, altText = 'Webcam image', skipLoadingState = false, cachedImage = null) {
     // Reuse existing wrapper or create new one
-    let wrapper = this.container.querySelector('.image-viewer__wrapper');
+    let wrapper = this.getWrapper();
     if (!wrapper) {
       clearElement(this.container);
       wrapper = createElement('div', { class: 'image-viewer__wrapper' });
@@ -258,43 +289,66 @@ export class ImageViewer {
     // For day changes, clear immediately to show placeholder
     if (!skipLoadingState) {
       wrapper.innerHTML = '';
+    } else {
+      // Scrubbing: remove any pending (not yet loaded) images from previous positions,
+      // but keep the currently visible image so there's no white flash
+      wrapper.querySelectorAll('.image-viewer__img--loading').forEach(el => el.remove());
     }
 
-    // Use cached image if available
+    // Use cached image if available — render instantly
     if (cachedImage && cachedImage.complete) {
       const img = createElement('img', {
         class: 'image-viewer__img',
         src: url,
         alt: altText,
       });
-      
+
       // Remove spinner and other images
       wrapper.querySelectorAll('.image-viewer__spinner, img').forEach(el => el.remove());
       this.removeLoadingOverlay();
       wrapper.appendChild(img);
-      return;
+      return Promise.resolve(true);
     }
 
+    // New image starts hidden; old image stays visible underneath (both position: absolute)
     const img = createElement('img', {
-      class: skipLoadingState ? 'image-viewer__img' : 'image-viewer__img image-viewer__img--loading',
+      class: 'image-viewer__img image-viewer__img--loading',
       src: url,
       alt: altText,
       loading: 'eager',
     });
 
-    img.addEventListener('load', () => {
-      // Remove spinner, loading overlay, and other images
-      wrapper.querySelectorAll('.image-viewer__spinner, img').forEach(el => {
-        if (el !== img) el.remove();
+    return new Promise((resolve) => {
+      img.addEventListener('load', () => {
+        // Ignore if this image was already removed by a subsequent scrub
+        if (!wrapper.contains(img)) {
+          resolve(false);
+          return;
+        }
+        // Show new image first (it's on top via position: absolute)
+        img.classList.remove('image-viewer__img--loading');
+        // Then clean up old images underneath
+        wrapper.querySelectorAll('.image-viewer__spinner, img').forEach(el => {
+          if (el !== img) el.remove();
+        });
+        this.removeLoadingOverlay();
+        resolve(true);
       });
-      this.removeLoadingOverlay();
-      img.classList.remove('image-viewer__img--loading');
-    });
 
-    img.addEventListener('error', () => {
-      this.renderError('Failed to load image');
-    });
+      img.addEventListener('error', () => {
+        if (!wrapper.contains(img)) {
+          resolve(false);
+          return;
+        }
+        img.remove();
+        // Only show error if there's nothing else visible
+        if (!wrapper.querySelector('img:not(.image-viewer__img--loading)')) {
+          this.renderError('Failed to load image');
+        }
+        resolve(false);
+      });
 
-    wrapper.appendChild(img);
+      wrapper.appendChild(img);
+    });
   }
 }

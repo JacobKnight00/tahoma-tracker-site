@@ -270,6 +270,7 @@ export async function fetchLatest() {
   
   // Add last_checked_at from manifest
   data.last_checked_at = manifest.last_checked_at;
+  data.daily_manifest = manifest;
   
   return data;
 }
@@ -370,7 +371,8 @@ export async function submitLabelBatch(labels, options = {}) {
  * @param {string} version - Model version (optional, defaults to current)
  * @returns {Promise<Object>} Analysis data
  */
-export async function fetchAnalysis(ts, version = null) {
+export async function fetchAnalysis(ts, version = null, options = {}) {
+  const { signal } = options;
   const imageId = buildImageId(ts);
   const modelVersion = version || config.models.current;
   const path = `analysis/${modelVersion}/${imageId}.json`;
@@ -378,6 +380,7 @@ export async function fetchAnalysis(ts, version = null) {
 
   const response = await fetch(url.toString(), {
     cache: 'no-store',
+    signal,
   });
 
   if (!response.ok) {
@@ -434,32 +437,13 @@ export function getImageUrl(keyOrTimestamp) {
 }
 
 /**
- * Fetch an image and return as a blob (for caching/preloading)
- * @param {string} keyOrTimestamp - S3 key or ISO timestamp
- * @returns {Promise<Blob>} Image blob
- */
-export async function fetchImage(keyOrTimestamp) {
-  const url = getImageUrl(keyOrTimestamp);
-  const response = await fetch(url);
-
-  if (!response.ok) {
-    throw new Error(`Failed to fetch image: ${response.statusText}`);
-  }
-
-  return response.blob();
-}
-
-// =============================================================================
-// FUTURE: Manifest-based batch loading (not needed for MVP)
-// =============================================================================
-
-/**
  * Fetch daily manifest listing all available images for a date
  * @param {Date|string} dateInput - Date object or date in YYYY-MM-DD format
  * @param {string} version - Model version (optional, defaults to current)
  * @returns {Promise<Object>} Manifest with images array and summary
  */
-export async function fetchDailyManifest(dateInput, version = null) {
+export async function fetchDailyManifest(dateInput, version = null, options = {}) {
+  const { signal } = options;
   const modelVersion = version || config.models.current;
   
   let dateStr;
@@ -484,7 +468,7 @@ export async function fetchDailyManifest(dateInput, version = null) {
   }
   
   const url = new URL(path, config.imageBaseUrl);
-  const response = await fetch(url.toString());
+  const response = await fetch(url.toString(), { signal });
 
   if (!response.ok) {
     throw new Error(`Failed to fetch daily manifest for ${dateStr}: ${response.statusText}`);
@@ -522,67 +506,4 @@ export async function fetchMonthlyManifest(year, month, version = null) {
   }
 
   return response.json();
-}
-
-/**
- * Batch load images for a day with progressive loading
- * @param {string} date - Date in YYYY-MM-DD format
- * @param {Object} options - Loading options
- * @param {number} options.chunkSize - How many images to load at once (default 10)
- * @param {Function} options.onProgress - Callback for progress updates
- * @returns {Promise<Array>} Array of loaded image blobs
- */
-export async function batchLoadImagesForDay(date, options = {}) {
-  const { chunkSize = 10, onProgress } = options;
-
-  // 1. Fetch the manifest
-  const manifest = await fetchDayManifest(date);
-  const timestamps = manifest.timestamps || [];
-  const total = timestamps.length;
-
-  // 2. Load images in chunks
-  const results = [];
-  for (let i = 0; i < timestamps.length; i += chunkSize) {
-    const chunk = timestamps.slice(i, i + chunkSize);
-
-    // Load chunk in parallel
-    const chunkResults = await Promise.allSettled(
-      chunk.map(ts => fetchImage(ts))
-    );
-
-    results.push(...chunkResults);
-
-    // Report progress
-    if (onProgress) {
-      onProgress({
-        loaded: results.length,
-        total,
-        percent: Math.round((results.length / total) * 100),
-      });
-    }
-  }
-
-  // 3. Filter out failures and return successful blobs
-  return results
-    .filter(result => result.status === 'fulfilled')
-    .map(result => result.value);
-}
-
-/**
- * Prefetch images for faster navigation (preload in browser cache)
- * @param {Array<string>} timestamps - Array of timestamps to prefetch
- * @returns {Promise<void>}
- */
-export async function prefetchImages(timestamps) {
-  // Use Promise.allSettled to not fail if one image fails
-  await Promise.allSettled(
-    timestamps.map(ts => {
-      const url = getImageUrl(ts);
-      // Create a link element to trigger prefetch
-      const link = document.createElement('link');
-      link.rel = 'prefetch';
-      link.href = url;
-      document.head.appendChild(link);
-    })
-  );
 }

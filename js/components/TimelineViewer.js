@@ -3,8 +3,17 @@
 
 import { getImageUrl, fetchAnalysis, fetchDailyManifest, fetchMonthlyManifest } from '../lib/api.js';
 import { formatTime, formatTimestamp } from '../utils/format.js';
+import {
+  buildSidebarStats,
+  createDateFromManifestEntry,
+  getCurrentPacificDateString,
+  getCurrentPacificMinutes,
+  getDisplayWindowMinutes,
+} from '../utils/manifestStats.js';
 import { config } from '../../config/config.js';
 import { CalendarPicker } from './CalendarPicker.js';
+
+const DAY_IMAGE_PRELOAD_CONCURRENCY = 10;
 
 export class TimelineViewer {
   constructor(options) {
@@ -19,7 +28,6 @@ export class TimelineViewer {
     }
     this.frames = [];
     this.currentFrameIndex = 0;
-    this.isLoading = false;
     this.isPlaying = false;
     this.playInterval = null;
     this.imageCache = new Map();
@@ -28,7 +36,19 @@ export class TimelineViewer {
     this.dateStatusCache = new Map(); // Cache for date availability status
     this.monthlyManifestCache = new Map(); // Cache for monthly manifests
     this.currentDayManifest = null; // Store current day's manifest for visibility data
+    this.currentDayTimelineImages = [];
     this.currentDayStats = null; // Store current day's summary stats
+    this.dayLoadState = {
+      phase: 'idle',
+      dateKey: null,
+      loadedCount: 0,
+      totalCount: 0,
+    };
+    this._loadId = 0;
+    this._viewId = 0;
+    this.activeManifestController = null;
+    this.activeAnalysisController = null;
+    this.activePreloadRequests = new Set();
     
     this.initializeElements();
     this.setupEventListeners();
@@ -44,8 +64,25 @@ export class TimelineViewer {
   }
   
   // Initialize and load today's frames
-  async initialize() {
+  async initialize(initialData = null) {
     try {
+      const latestTs = initialData?.ts || initialData?.timestamp || null;
+      const initialManifest = initialData?.daily_manifest || null;
+
+      if (initialManifest?.date) {
+        const [year, month, day] = initialManifest.date.split('-').map((value) => Number.parseInt(value, 10));
+        this.currentDate = new Date(year, month - 1, day);
+        this.currentDate.setHours(0, 0, 0, 0);
+
+        const initialTargetTime = latestTs ? new Date(latestTs) : null;
+        await this.loadDate(initialTargetTime, {
+          render: false,
+          initialManifest,
+          initialViewReady: true,
+        });
+        return;
+      }
+
       await this.loadDate(null, { render: false });
     } catch (error) {
       console.error('TimelineViewer initialization failed:', error);
@@ -65,16 +102,6 @@ export class TimelineViewer {
     this.scrubberTrack = document.getElementById('timeline-scrubber-track');
     this.scrubberHandle = document.getElementById('timeline-scrubber-handle');
     this.scrubberProgress = document.getElementById('timeline-scrubber-progress');
-    
-    // Stats elements
-    this.statsContainer = document.getElementById('timeline-stats');
-    this.statsDayPct = document.getElementById('timeline-stats-day-pct');
-    this.statsMonthDays = document.getElementById('timeline-stats-month-days');
-    this.statsBestDayContainer = document.getElementById('timeline-stats-best-day-container');
-    this.statsBestDay = document.getElementById('timeline-stats-best-day');
-    this.statsStreakContainer = document.getElementById('timeline-stats-streak-container');
-    this.statsStreak = document.getElementById('timeline-stats-streak');
-    
   }
   
   initializeCalendar() {
@@ -206,6 +233,106 @@ export class TimelineViewer {
     this.setupScrubberEvents();
   }
 
+  getDateKey(date = this.currentDate) {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  }
+
+  isPreparingDay() {
+    return this.dayLoadState.phase === 'loading-day' || this.dayLoadState.phase === 'preparing-day';
+  }
+
+  canNavigateWithinDay() {
+    return this.dayLoadState.phase === 'ready' && this.frames.length > 0;
+  }
+
+  setDayLoadState(partialState = {}) {
+    this.dayLoadState = {
+      ...this.dayLoadState,
+      ...partialState,
+    };
+    this.syncTimelineUi();
+  }
+
+  syncTimelineUi() {
+    const intraDayReady = this.canNavigateWithinDay();
+
+    if (this.playBtn) {
+      this.playBtn.disabled = !intraDayReady;
+    }
+
+    if (this.expandBtn) {
+      this.expandBtn.disabled = false;
+    }
+
+    if (this.scrubberTrack) {
+      this.scrubberTrack.classList.toggle('timeline-scrubber-track--disabled', !intraDayReady);
+      this.scrubberTrack.setAttribute('aria-disabled', String(!intraDayReady));
+    }
+
+    if (this.scrubberHandle) {
+      this.scrubberHandle.classList.toggle('timeline-scrubber-handle--disabled', !intraDayReady);
+      this.scrubberHandle.setAttribute('aria-disabled', String(!intraDayReady));
+    }
+
+    this.updateNavigationState();
+    this.updateLatestButton();
+    this.updateLoadingBanner();
+  }
+
+  updateLoadingBanner() {
+    if (!this.imageViewer?.setStatusBanner) {
+      return;
+    }
+
+    if (!this.isPreparingDay()) {
+      this.imageViewer.clearStatusBanner();
+      return;
+    }
+
+    const { phase, loadedCount, totalCount } = this.dayLoadState;
+    if (phase === 'loading-day' || totalCount <= 0) {
+      this.imageViewer.setStatusBanner('Loading day...');
+      return;
+    }
+
+    this.imageViewer.setStatusBanner(`Loading images ${loadedCount} / ${totalCount}`);
+  }
+
+  cancelActiveDayLoad() {
+    if (this.activeManifestController) {
+      this.activeManifestController.abort();
+      this.activeManifestController = null;
+    }
+
+    if (this.activeAnalysisController) {
+      this.activeAnalysisController.abort();
+      this.activeAnalysisController = null;
+    }
+
+    for (const entry of this.activePreloadRequests) {
+      const { img, resolve } = entry;
+      img.onload = null;
+      img.onerror = null;
+      img.src = '';
+      resolve(false);
+    }
+    this.activePreloadRequests.clear();
+  }
+
+  buildFramesFromManifest(manifest) {
+    this.currentDayManifest = manifest;
+    const statsData = buildSidebarStats(manifest, null);
+    this.currentDayTimelineImages = statsData?.filteredImages || [];
+    this.currentDayStats = statsData?.summary || null;
+
+    return this.currentDayTimelineImages
+      .map((img) => createDateFromManifestEntry(manifest.date, img.time))
+      .filter((frame) => frame !== null);
+  }
+
   setupKeyboardNavigation() {
     // Set up keyboard navigation
     document.addEventListener('keydown', (e) => {
@@ -237,7 +364,7 @@ export class TimelineViewer {
    * Navigate to previous image in current day
    */
   navigateToPrevious() {
-    if (this.isLoading || this.frames.length === 0) return;
+    if (!this.canNavigateWithinDay()) return;
     
     if (this.currentFrameIndex > 0) {
       this.currentFrameIndex--;
@@ -249,7 +376,7 @@ export class TimelineViewer {
    * Navigate to next image in current day
    */
   navigateToNext() {
-    if (this.isLoading || this.frames.length === 0) return;
+    if (!this.canNavigateWithinDay()) return;
     
     if (this.currentFrameIndex < this.frames.length - 1) {
       this.currentFrameIndex++;
@@ -261,11 +388,16 @@ export class TimelineViewer {
    * Update navigation state for image viewer arrows
    */
   updateNavigationState() {
-    if (this.imageViewer) {
-      const hasPrev = this.currentFrameIndex > 0;
-      const hasNext = this.currentFrameIndex < this.frames.length - 1;
-      this.imageViewer.updateNavigationArrows({ hasPrev, hasNext });
+    if (!this.imageViewer) return;
+
+    if (!this.canNavigateWithinDay()) {
+      this.imageViewer.clearNavigationArrows();
+      return;
     }
+
+    const hasPrev = this.currentFrameIndex > 0;
+    const hasNext = this.currentFrameIndex < this.frames.length - 1;
+    this.imageViewer.updateNavigationArrows({ hasPrev, hasNext });
   }
   
   setupScrubberEvents() {
@@ -274,6 +406,7 @@ export class TimelineViewer {
     let isDragging = false;
     
     const updatePosition = (clientX) => {
+      if (!this.canNavigateWithinDay()) return;
       const rect = this.scrubberTrack.getBoundingClientRect();
       const clickX = clientX - rect.left;
       const percent = Math.max(0, Math.min(1, clickX / rect.width));
@@ -295,6 +428,7 @@ export class TimelineViewer {
     });
     
     this.scrubberHandle.addEventListener('mousedown', (e) => {
+      if (!this.canNavigateWithinDay()) return;
       isDragging = true;
       e.preventDefault();
     });
@@ -310,6 +444,7 @@ export class TimelineViewer {
 
     // Touch support
     this.scrubberTrack.addEventListener('touchstart', (e) => {
+      if (!this.canNavigateWithinDay()) return;
       const x = extractClientX(e);
       if (x !== undefined) {
         updatePosition(x);
@@ -319,6 +454,7 @@ export class TimelineViewer {
     }, { passive: false });
 
     this.scrubberHandle.addEventListener('touchstart', (e) => {
+      if (!this.canNavigateWithinDay()) return;
       isDragging = true;
       e.preventDefault();
     }, { passive: false });
@@ -339,39 +475,35 @@ export class TimelineViewer {
   
   generatePotentialTimestamps(date) {
     const timestamps = [];
-    const { startHour, endHour, intervalMinutes } = config.timeWindow;
-    
     const day = new Date(date);
-    day.setHours(startHour, 0, 0, 0);
-    
-    while (day.getHours() < endHour || (day.getHours() === endHour && day.getMinutes() <= 50)) {
+    day.setHours(0, 0, 0, 0);
+
+    const endOfDay = new Date(date);
+    endOfDay.setHours(23, 59, 0, 0);
+
+    while (day <= endOfDay) {
       timestamps.push(new Date(day));
-      day.setMinutes(day.getMinutes() + intervalMinutes);
+      day.setMinutes(day.getMinutes() + 10);
     }
-    
+
     return timestamps;
   }
   
-  async fetchFramesForDay(date) {
+  async fetchFramesForDay(date, options = {}) {
+    const { signal } = options;
+
     try {
       // Try to fetch daily manifest first (efficient, single request)
-      const manifest = await fetchDailyManifest(date);
-      this.currentDayManifest = manifest; // Store for visibility data and stats
-      this.currentDayStats = manifest.summary || null;
-      
-      // Extract timestamps from manifest
-      const frames = manifest.images.map(img => {
-        const [year, month, day] = manifest.date.split('-');
-        const hours = img.time.substring(0, 2);
-        const minutes = img.time.substring(2, 4);
-        return new Date(parseInt(year), parseInt(month) - 1, parseInt(day), parseInt(hours), parseInt(minutes));
-      });
-      
-      return frames;
+      const manifest = await fetchDailyManifest(date, null, { signal });
+      return this.buildFramesFromManifest(manifest);
       
     } catch (error) {
+      if (error?.name === 'AbortError') {
+        throw error;
+      }
       console.warn('Failed to load manifest, falling back to probing:', error);
       this.currentDayManifest = null;
+      this.currentDayTimelineImages = [];
       this.currentDayStats = null;
       
       // Fallback: probe for frames individually (old method)
@@ -380,13 +512,20 @@ export class TimelineViewer {
       const batchSize = 10;
       
       for (let i = 0; i < potentialTimestamps.length; i += batchSize) {
+        if (signal?.aborted) {
+          throw new DOMException('Aborted', 'AbortError');
+        }
+
         const batch = potentialTimestamps.slice(i, i + batchSize);
         const results = await Promise.allSettled(
           batch.map(async (timestamp) => {
             try {
-              await fetchAnalysis(timestamp.toISOString());
+              await fetchAnalysis(timestamp.toISOString(), null, { signal });
               return timestamp;
             } catch (error) {
+              if (error?.name === 'AbortError') {
+                throw error;
+              }
               return null;
             }
           })
@@ -411,27 +550,78 @@ export class TimelineViewer {
       }
       
       const img = new Image();
+      const entry = { img, resolve };
       img.onload = () => {
+        this.activePreloadRequests.delete(entry);
         this.imageCache.set(url, img);
         resolve();
       };
-      img.onerror = () => resolve();
+      img.onerror = () => {
+        this.activePreloadRequests.delete(entry);
+        resolve();
+      };
+      this.activePreloadRequests.add(entry);
       img.src = url;
     });
   }
   
-  async preloadAllImages() {
-    const batchSize = 10;
-    
-    for (let i = 0; i < this.frames.length; i += batchSize) {
-      const batch = this.frames.slice(i, i + batchSize);
-      await Promise.allSettled(
-        batch.map(frame => {
-          const url = getImageUrl(frame.toISOString());
-          return this.preloadImage(url);
-        })
-      );
+  async preloadAllImages(loadId, startIndex) {
+    const frameUrls = this.frames.map(frame => getImageUrl(frame.toISOString()));
+    const remainingUrls = frameUrls.filter((_, index) => index !== startIndex);
+
+    if (frameUrls.length === 0) {
+      this.setDayLoadState({
+        phase: 'ready',
+        loadedCount: 0,
+        totalCount: 0,
+      });
+      return;
     }
+
+    if (remainingUrls.length === 0) {
+      this.setDayLoadState({
+        phase: 'ready',
+        loadedCount: 1,
+        totalCount: 1,
+      });
+      return;
+    }
+
+    let loadedCount = 1;
+    const totalCount = frameUrls.length;
+    const queue = [...remainingUrls];
+    const concurrency = Math.min(DAY_IMAGE_PRELOAD_CONCURRENCY, queue.length);
+
+    this.setDayLoadState({
+      phase: 'preparing-day',
+      loadedCount,
+      totalCount,
+    });
+
+    const runWorker = async () => {
+      while (queue.length > 0 && this._loadId === loadId) {
+        const nextUrl = queue.shift();
+        if (!nextUrl) {
+          return;
+        }
+
+        await this.preloadImage(nextUrl);
+        if (this._loadId !== loadId) {
+          return;
+        }
+
+        loadedCount += 1;
+        this.setDayLoadState({
+          phase: 'preparing-day',
+          loadedCount,
+          totalCount,
+        });
+      }
+    };
+
+    await Promise.allSettled(
+      Array.from({ length: concurrency }, () => runWorker())
+    );
   }
   
   updateScrubberPosition() {
@@ -456,9 +646,9 @@ export class TimelineViewer {
    * Update handle fill color to match current segment
    */
   updateHandleColor() {
-    if (!this.scrubberHandle || !this.currentDayManifest) return;
+    if (!this.scrubberHandle) return;
     
-    const images = this.currentDayManifest.images || [];
+    const images = this.currentDayTimelineImages || [];
     if (images.length === 0 || this.currentFrameIndex >= images.length) return;
     
     const currentImage = images[this.currentFrameIndex];
@@ -481,13 +671,13 @@ export class TimelineViewer {
    * Add color-coded visibility segments to scrubber track
    */
   updateScrubberSegments() {
-    if (!this.scrubberTrack || !this.currentDayManifest) return;
+    if (!this.scrubberTrack) return;
     
     // Remove existing segments
     const existingSegments = this.scrubberTrack.querySelectorAll('.timeline-scrubber-segment');
     existingSegments.forEach(seg => seg.remove());
     
-    const images = this.currentDayManifest.images || [];
+    const images = this.currentDayTimelineImages || [];
     if (images.length === 0) return;
     
     // Create colored segments for each image based on visibility
@@ -527,157 +717,37 @@ export class TimelineViewer {
    * Update the stats display with day percentage and monthly stats
    */
   async updateStatsDisplay() {
-    if (!this.statsContainer) return;
-    
-    if (!this.currentDayStats || !this.currentDayManifest) {
-      // Hide stats if no data available
-      if (this.statsContainer.style) {
-        this.statsContainer.style.display = 'none';
-      }
+    if (!this.metadataDisplay?.setStats) return;
+
+    if (!this.currentDayManifest) {
+      this.metadataDisplay.setStats(null);
       return;
     }
-    
-    // Show stats container
-    if (this.statsContainer.style) {
-      this.statsContainer.style.display = '';
-    }
-    
-    // Update date in title
-    const statsTitle = this.statsContainer.querySelector('.timeline-stats__title');
-    const manifestDate = new Date(this.currentDayManifest.date);
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    manifestDate.setHours(0, 0, 0, 0);
-    
-    if (statsTitle) {
-      if (manifestDate.getTime() === today.getTime()) {
-        statsTitle.textContent = "Today's Stats";
-      } else {
-        const options = { month: 'short', day: 'numeric' };
-        statsTitle.textContent = `Stats for ${manifestDate.toLocaleDateString('en-US', options)}`;
-      }
-    }
-    
-    // Calculate day visibility percentage (out + partial)
-    const stats = this.currentDayStats;
-    const outCount = stats.out_count || 0;
-    const partialCount = stats.partially_out_count || 0;
-    const total = stats.total || 1;
-    const visiblePct = Math.round(((outCount + partialCount) / total) * 100);
-    
-    if (this.statsDayPct) {
-      this.statsDayPct.textContent = `${visiblePct}%`;
-    }
-    
-    // Get monthly stats
-    const year = manifestDate.getFullYear();
-    const month = manifestDate.getMonth() + 1;
-    
-    // Hide optional stats by default
-    if (this.statsBestDayContainer) this.statsBestDayContainer.style.display = 'none';
-    if (this.statsStreakContainer) this.statsStreakContainer.style.display = 'none';
-    
+
+    const manifestDate = this.currentDayManifest.date;
+    const [year, month] = manifestDate.split('-').map((value) => Number.parseInt(value, 10));
+    const dailyOnlyStats = buildSidebarStats(this.currentDayManifest, null);
+    this.currentDayStats = dailyOnlyStats?.summary || null;
+    this.metadataDisplay.setStats(dailyOnlyStats);
+
     try {
       const monthlyManifest = await this.getMonthlyManifest(year, month);
-      
-      if (this.statsMonthDays && monthlyManifest?.stats) {
-        const daysWithOut = monthlyManifest.stats.days_with_out || 0;
-        this.statsMonthDays.textContent = daysWithOut;
+      if (this.currentDayManifest?.date !== manifestDate) {
+        return;
       }
-      
-      // Best day this month (only show if there were days out)
-      if (monthlyManifest?.days && monthlyManifest?.stats?.days_with_out > 0) {
-        const bestDay = this.findBestDayInMonth(monthlyManifest, year, month);
-        if (bestDay && this.statsBestDay && this.statsBestDayContainer) {
-          this.statsBestDay.textContent = bestDay;
-          this.statsBestDayContainer.style.display = '';
-        }
-      }
-      
-      // Longest streak (including partial visibility)
-      if (monthlyManifest?.days) {
-        const streak = this.findLongestStreak(monthlyManifest);
-        if (streak > 1 && this.statsStreak && this.statsStreakContainer) {
-          this.statsStreak.textContent = `${streak} days`;
-          this.statsStreakContainer.style.display = '';
-        }
-      }
-      
+
+      const enrichedStats = buildSidebarStats(this.currentDayManifest, monthlyManifest);
+      this.currentDayStats = enrichedStats?.summary || null;
+      this.metadataDisplay.setStats(enrichedStats);
     } catch (error) {
       console.warn('Failed to get monthly stats:', error);
-      if (this.statsMonthDays) {
-        this.statsMonthDays.textContent = '--';
-      }
     }
-  }
-  
-  /**
-   * Find the best day in the month (highest visibility)
-   */
-  findBestDayInMonth(monthlyManifest, year, month) {
-    const days = monthlyManifest.days;
-    if (!days) return null;
-    
-    let bestDay = null;
-    let bestScore = -1;
-    
-    for (const [dayStr, dayInfo] of Object.entries(days)) {
-      // Score based on out_count primarily, with partial as tiebreaker
-      const score = (dayInfo.out_count || 0) * 100 + (dayInfo.partially_out_count || 0);
-      if (score > bestScore && dayInfo.out_count > 0) {
-        bestScore = score;
-        bestDay = dayStr;
-      }
-    }
-    
-    if (!bestDay) return null;
-    
-    // Format as "Jan 5" 
-    const date = new Date(year, month - 1, parseInt(bestDay));
-    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-  }
-  
-  /**
-   * Find the longest streak of consecutive days with visibility (out or partial)
-   */
-  findLongestStreak(monthlyManifest) {
-    const days = monthlyManifest.days;
-    if (!days) return 0;
-    
-    // Get sorted day numbers
-    const dayNumbers = Object.keys(days)
-      .map(d => parseInt(d))
-      .sort((a, b) => a - b);
-    
-    let longestStreak = 0;
-    let currentStreak = 0;
-    let lastDay = -1;
-    
-    for (const dayNum of dayNumbers) {
-      const dayInfo = days[String(dayNum).padStart(2, '0')];
-      const hasVisibility = dayInfo.had_out || dayInfo.had_partially_out;
-      
-      if (hasVisibility) {
-        // Check if consecutive
-        if (lastDay === -1 || dayNum === lastDay + 1) {
-          currentStreak++;
-        } else {
-          currentStreak = 1;
-        }
-        lastDay = dayNum;
-        longestStreak = Math.max(longestStreak, currentStreak);
-      } else {
-        currentStreak = 0;
-        lastDay = -1;
-      }
-    }
-    
-    return longestStreak;
   }
   
   async updateView(options = {}) {
     if (this.frames.length === 0) return;
     
+    const viewId = ++this._viewId;
     const currentFrame = this.frames[this.currentFrameIndex];
     const imageUrl = getImageUrl(currentFrame.toISOString());
     
@@ -693,12 +763,15 @@ export class TimelineViewer {
     // Update navigation state for image viewer arrows
     this.updateNavigationState();
     
-    // Update stats display
-    this.updateStatsDisplay();
-    
     // Use skipLoadingState for smooth scrubbing, but show loading for date changes
     const skipLoading = options.skipLoadingState !== false;
-    this.imageViewer.renderUrl(imageUrl, `Mt. Rainier at ${formatTime(currentFrame)}`, skipLoading);
+    const cachedImage = this.imageCache.get(imageUrl) || null;
+    const imageRenderPromise = this.imageViewer.renderUrl(
+      imageUrl,
+      formatTime(currentFrame),
+      skipLoading,
+      cachedImage
+    );
     
     // Update navigation state after image is rendered
     setTimeout(() => this.updateNavigationState(), 0);
@@ -713,12 +786,21 @@ export class TimelineViewer {
       if (this.onImageChange) {
         this.onImageChange(latestData, null);
       }
-      return;
+      return imageRenderPromise;
     }
     
     // Fetch and update metadata (async, don't await to keep it fast)
-    fetchAnalysis(currentFrame.toISOString())
+    if (this.activeAnalysisController) {
+      this.activeAnalysisController.abort();
+    }
+
+    this.activeAnalysisController = new AbortController();
+
+    fetchAnalysis(currentFrame.toISOString(), null, { signal: this.activeAnalysisController.signal })
       .then(data => {
+        if (this._viewId !== viewId) {
+          return;
+        }
         this.metadataDisplay.render(data);
         
         // Notify parent about image change
@@ -728,85 +810,147 @@ export class TimelineViewer {
         }
       })
       .catch(error => {
+        if (error?.name === 'AbortError') {
+          return;
+        }
         console.error('Failed to fetch analysis:', error);
       });
 
     this.updateLatestButton();
+    return imageRenderPromise;
   }
   
-  async loadDate(targetTime = null, options = { render: true }) {
-    if (this.isLoading) return;
-    
+  async loadDate(targetTime = null, options = {}) {
+    const {
+      render = true,
+      initialManifest = null,
+      initialViewReady = false,
+    } = options;
+
     if (this.isPlaying) {
       this.togglePlay();
     }
 
+    // Preserve current time-of-day for day changes
+    if (!targetTime && this.frames.length > 0 && this.currentFrameIndex < this.frames.length) {
+      const currentFrame = this.frames[this.currentFrameIndex];
+      targetTime = new Date(this.currentDate);
+      targetTime.setHours(currentFrame.getHours(), currentFrame.getMinutes(), 0, 0);
+    }
+
+    // Cancel any in-progress work before starting the new day load
+    this.cancelActiveDayLoad();
+    this._loadId += 1;
+    const myLoadId = this._loadId;
+    const dateKey = this.getDateKey(this.currentDate);
+
     // Show loading state when changing days (keep current image greyed out)
-    if (options.render) {
+    if (render) {
       this.imageViewer.showLoadingWithCurrentImage();
     }
-    
+
     this.imageCache.clear();
-    this.isLoading = true;
-    
+    this.setDayLoadState({
+      phase: 'loading-day',
+      dateKey,
+      loadedCount: 0,
+      totalCount: 0,
+    });
+    this.activeManifestController = new AbortController();
+
     // Update calendar to reflect selected date
     if (this.calendar) {
       this.calendar.setDate(this.currentDate);
     }
-    
+
     // Update date display
     this.updateDateDisplay();
-    
+
     if (this.timeDisplay) {
       this.timeDisplay.textContent = 'Loading...';
     }
-    
+
     try {
-      this.setNavigationDisabled(true);
-      this.frames = await this.fetchFramesForDay(this.currentDate);
-      
+      if (initialManifest) {
+        this.frames = this.buildFramesFromManifest(initialManifest);
+      } else {
+        this.frames = await this.fetchFramesForDay(this.currentDate, {
+          signal: this.activeManifestController.signal,
+        });
+      }
+
+      if (this._loadId !== myLoadId) return;
+
+      const displayWindow = getDisplayWindowMinutes(this.currentDayManifest?.daylight);
+      const isCurrentPacificDay = this.currentDayManifest?.date === getCurrentPacificDateString();
+      if (displayWindow && isCurrentPacificDay) {
+        const currentPacificMinutes = getCurrentPacificMinutes();
+        if (currentPacificMinutes != null && currentPacificMinutes < displayWindow.startMinutes) {
+          this.currentDate.setDate(this.currentDate.getDate() - 1);
+          await this.loadDate(targetTime, { render });
+          return;
+        }
+      }
+
       // Update stats right after loading frames (when manifest data is fresh)
       this.updateStatsDisplay();
-      
+
       if (this.frames.length === 0) {
         if (this.timeDisplay) {
           this.timeDisplay.textContent = 'No data';
         }
         this.updateCapturedDisplay(null);
+        this.setDayLoadState({
+          phase: 'ready',
+          dateKey: this.getDateKey(this.currentDate),
+          loadedCount: 0,
+          totalCount: 0,
+        });
       } else {
         // Choose frame: match targetTime if provided, else latest
         this.currentFrameIndex = this.findFrameIndex(targetTime);
-        
-        // Preload all images
-        await this.preloadAllImages();
-        
-        // Update scrubber position
-        this.updateScrubberPosition();
-        
-        // Update navigation state
-        this.updateNavigationState();
-        
+
         if (this.timeDisplay) {
           this.timeDisplay.textContent = formatTime(this.frames[this.currentFrameIndex]);
         }
         this.updateCapturedDisplay(this.frames[this.currentFrameIndex]);
-        
-        if (options.render) {
-          await this.updateView({ skipLoadingState: false });
-        } else {
-          // Still need to update navigation state even if not rendering
-          this.updateNavigationState();
+        this.updateScrubberPosition();
+
+        // Render the selected frame first, then prepare the rest of the day.
+        if (!initialViewReady) {
+          await this.updateView({ skipLoadingState: true });
+
+          if (this._loadId !== myLoadId) return;
         }
+
+        await this.preloadAllImages(myLoadId, this.currentFrameIndex);
+
+        if (this._loadId !== myLoadId) return;
+
+        this.setDayLoadState({
+          phase: 'ready',
+          dateKey: this.getDateKey(this.currentDate),
+          loadedCount: this.frames.length,
+          totalCount: this.frames.length,
+        });
       }
     } catch (error) {
+      if (error?.name === 'AbortError') {
+        return;
+      }
       console.error('Error loading frames:', error);
       if (this.timeDisplay) {
         this.timeDisplay.textContent = 'Error';
       }
+      this.setDayLoadState({
+        phase: 'error',
+        dateKey: this.getDateKey(this.currentDate),
+      });
     } finally {
-      this.isLoading = false;
-      this.setNavigationDisabled(false);
-      this.updateNavigationButtons();
+      if (this._loadId === myLoadId) {
+        this.activeManifestController = null;
+        this.updateNavigationButtons();
+      }
     }
   }
 
@@ -849,14 +993,8 @@ export class TimelineViewer {
       const minDate = this.getMinDate();
       this.calendar.setDateRange(minDate, maxDate);
     }
-    
-    if (this.playBtn) {
-      this.playBtn.disabled = this.isLoading;
-    }
-    this.updateLatestButton();
-    if (this.expandBtn) {
-      this.expandBtn.disabled = this.isLoading;
-    }
+
+    this.syncTimelineUi();
   }
 
   isAtLatestFrame() {
@@ -871,7 +1009,7 @@ export class TimelineViewer {
   updateLatestButton() {
     if (!this.latestBtn) return;
     const atLatest = this.isAtLatestFrame();
-    this.latestBtn.disabled = this.isLoading || atLatest;
+    this.latestBtn.disabled = atLatest;
   }
   
   prevFrame() {
@@ -893,6 +1031,10 @@ export class TimelineViewer {
   }
   
   togglePlay() {
+    if (!this.canNavigateWithinDay()) {
+      return;
+    }
+
     this.isPlaying = !this.isPlaying;
     
     if (this.isPlaying) {
@@ -920,9 +1062,19 @@ export class TimelineViewer {
   
   // Reset to latest image
   resetToLatest(latestData) {
+    this.cancelActiveDayLoad();
     this.frames = [];
     this.currentFrameIndex = 0;
     this.imageCache.clear();
+    this.currentDayManifest = latestData?.daily_manifest || null;
+    this.currentDayTimelineImages = [];
+    this.currentDayStats = null;
+    this.setDayLoadState({
+      phase: 'idle',
+      dateKey: null,
+      loadedCount: 0,
+      totalCount: 0,
+    });
     
     if (this.isPlaying) {
       this.togglePlay();
@@ -944,9 +1096,11 @@ export class TimelineViewer {
     if (isExpanded) {
       this.controlsExpanded.style.display = 'none';
       this.expandBtn.classList.remove('expanded');
+      this.expandBtn.setAttribute('aria-expanded', 'false');
     } else {
       this.controlsExpanded.style.display = 'block';
       this.expandBtn.classList.add('expanded');
+      this.expandBtn.setAttribute('aria-expanded', 'true');
 
       // Initialize calendar if not already done (when controls are first expanded)
       if (!this.calendar) {
@@ -975,10 +1129,11 @@ export class TimelineViewer {
     }
     if (this.expandBtn) {
       this.expandBtn.classList.add('expanded');
+      this.expandBtn.setAttribute('aria-expanded', 'true');
     }
     
     // Load today's frames and target the latest time
-    this.loadDate(latestDate);
+    this.loadDate(latestDate, { initialManifest: latestData.daily_manifest || null });
     if (this.onImageChange) {
       this.onImageChange(latestData, null);
     }
@@ -986,8 +1141,6 @@ export class TimelineViewer {
 
   setNavigationDisabled(disabled) {
     if (this.playBtn) this.playBtn.disabled = disabled;
-    if (this.latestBtn) this.latestBtn.disabled = disabled;
-    if (this.expandBtn) this.expandBtn.disabled = disabled;
   }
 
   updateCapturedDisplay(dateObj) {

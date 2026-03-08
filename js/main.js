@@ -1,13 +1,14 @@
 // Main Entry Point for Home Page
 // Fetches latest data and renders the UI
 
-import { fetchLatest, buildImageId } from './lib/api.js';
+import { fetchLatest } from './lib/api.js';
 import { StatusDisplay } from './components/StatusDisplay.js';
 import { ImageViewer } from './components/ImageViewer.js';
 import { MetadataDisplay } from './components/MetadataDisplay.js';
 import { LabelForm } from './components/LabelForm.js';
 import { TimelineViewer } from './components/TimelineViewer.js';
 import { formatRelativeTime } from './utils/format.js';
+import { buildSidebarStats } from './utils/manifestStats.js';
 import { config } from '../config/config.js';
 
 // Component instances
@@ -16,6 +17,12 @@ let imageViewer;
 let metadataDisplay;
 let labelForm;
 let timelineViewer;
+
+// Prevent browser from restoring a stale scroll position on reload
+if ('scrollRestoration' in history) {
+  history.scrollRestoration = 'manual';
+}
+window.scrollTo(0, 0);
 
 // Auto-refresh interval ID
 let refreshIntervalId;
@@ -87,6 +94,50 @@ function updatePageTitleTense() {
   }
 }
 
+function setDailySidebarStatsIfNeeded(dailyManifest) {
+  if (!metadataDisplay) {
+    return;
+  }
+
+  if (!dailyManifest?.date) {
+    metadataDisplay.setStats(null);
+    return;
+  }
+
+  if (metadataDisplay.statsData?.date !== dailyManifest.date) {
+    metadataDisplay.setStats(buildSidebarStats(dailyManifest, null));
+  }
+}
+
+async function refreshLatestSidebarStats(dailyManifest) {
+  if (!metadataDisplay) {
+    return;
+  }
+
+  if (!dailyManifest?.date) {
+    metadataDisplay.setStats(null);
+    return;
+  }
+
+  const manifestDate = dailyManifest.date;
+  const [year, month] = manifestDate.split('-').map((value) => Number.parseInt(value, 10));
+  let monthlyManifest = null;
+
+  if (timelineViewer?.getMonthlyManifest && Number.isInteger(year) && Number.isInteger(month)) {
+    monthlyManifest = await timelineViewer.getMonthlyManifest(year, month);
+  }
+
+  if (!isViewingLatest || latestData?.daily_manifest?.date !== manifestDate) {
+    return;
+  }
+
+  if (!monthlyManifest && metadataDisplay.statsData?.date === manifestDate) {
+    return;
+  }
+
+  metadataDisplay.setStats(buildSidebarStats(dailyManifest, monthlyManifest));
+}
+
 /**
  * Handle timeline image change
  */
@@ -95,6 +146,8 @@ function handleTimelineImageChange(data, timestamp) {
   if (!timestamp) {
     isViewingLatest = true;
     statusDisplay.render(latestData);
+    setDailySidebarStatsIfNeeded(latestData?.daily_manifest);
+    void refreshLatestSidebarStats(latestData?.daily_manifest);
     // Clear navigation arrows when viewing latest
     imageViewer.clearNavigationArrows();
   } else {
@@ -127,6 +180,10 @@ async function loadLatestData() {
     // Store globally
     latestData = data;
     window.latestData = data;
+    if (isViewingLatest || !timelineViewer || timelineViewer.frames.length === 0) {
+      setDailySidebarStatsIfNeeded(data.daily_manifest);
+      void refreshLatestSidebarStats(data.daily_manifest);
+    }
 
     // Only update UI if we're still viewing the latest
     if (isViewingLatest) {
@@ -164,7 +221,7 @@ async function loadLatestData() {
     
     // Initialize timeline on first load (loads frames but doesn't change the image)
     if (timelineViewer && timelineViewer.frames.length === 0) {
-      timelineViewer.initialize();
+      timelineViewer.initialize(data);
     }
   } catch (error) {
     console.error('Failed to load latest data:', error);
@@ -182,6 +239,8 @@ window.addEventListener('timelineClose', () => {
       statusDisplay.render(latestData);
       imageViewer.render(latestData);
       metadataDisplay.render(latestData);
+      setDailySidebarStatsIfNeeded(latestData.daily_manifest);
+      void refreshLatestSidebarStats(latestData.daily_manifest);
       // Clear navigation arrows when returning to latest
       imageViewer.clearNavigationArrows();
       ensureLabelForm();
