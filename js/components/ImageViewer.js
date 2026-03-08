@@ -14,6 +14,10 @@ export class ImageViewer {
     return this.container.querySelector('.image-viewer__wrapper');
   }
 
+  getCurrentImage() {
+    return this.getWrapper()?.querySelector('img:not(.image-viewer__img--loading)') || null;
+  }
+
   /**
    * Set navigation callback and state
    * @param {Function} callback - Function to call for navigation (direction: 'prev' | 'next')

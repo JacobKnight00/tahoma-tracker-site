@@ -564,6 +564,18 @@ export class TimelineViewer {
       img.src = url;
     });
   }
+
+  cacheVisibleImage(url) {
+    const visibleImage = this.imageViewer?.getCurrentImage?.();
+    if (!visibleImage?.complete) {
+      return;
+    }
+
+    const currentSrc = visibleImage.currentSrc || visibleImage.src;
+    if (currentSrc === url) {
+      this.imageCache.set(url, visibleImage);
+    }
+  }
   
   async preloadAllImages(loadId, startIndex) {
     const frameUrls = this.frames.map(frame => getImageUrl(frame.toISOString()));
@@ -771,7 +783,12 @@ export class TimelineViewer {
       formatTime(currentFrame),
       skipLoading,
       cachedImage
-    );
+    ).then((didRender) => {
+      if (didRender) {
+        this.cacheVisibleImage(imageUrl);
+      }
+      return didRender;
+    });
     
     // Update navigation state after image is rendered
     setTimeout(() => this.updateNavigationState(), 0);
@@ -915,6 +932,11 @@ export class TimelineViewer {
         }
         this.updateCapturedDisplay(this.frames[this.currentFrameIndex]);
         this.updateScrubberPosition();
+
+        if (initialViewReady) {
+          const currentFrameUrl = getImageUrl(this.frames[this.currentFrameIndex].toISOString());
+          this.cacheVisibleImage(currentFrameUrl);
+        }
 
         // Render the selected frame first, then prepare the rest of the day.
         if (!initialViewReady) {
