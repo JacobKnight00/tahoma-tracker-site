@@ -85,8 +85,13 @@ function formatMonthDay(dateStr) {
 function summarizeImages(images = []) {
   let outCount = 0;
   let partiallyOutCount = 0;
+  let scoredCount = 0;
 
   for (const image of images) {
+    if (image.frame_state === 'dark') {
+      continue;
+    }
+    scoredCount += 1;
     if (image.visibility === 'out') {
       outCount += 1;
     } else if (image.visibility === 'partially_out') {
@@ -94,14 +99,13 @@ function summarizeImages(images = []) {
     }
   }
 
-  const total = images.length;
   const weightedVisible = outCount + (partiallyOutCount * 0.5);
-  const visiblePct = total > 0
-    ? Math.round((weightedVisible / total) * 100)
+  const visiblePct = scoredCount > 0
+    ? Math.round((weightedVisible / scoredCount) * 100)
     : null;
 
   return {
-    total,
+    total: scoredCount,
     outCount,
     partiallyOutCount,
     visiblePct,
@@ -317,8 +321,8 @@ export function buildSidebarStats(dailyManifest, monthlyManifest = null) {
     summary,
     items: [
       {
-        label: 'Visible',
-        value: summary.visiblePct != null ? `${summary.visiblePct}%` : '--',
+        label: isToday ? "Today's Visible Score" : "Day's Visible Score",
+        value: summary.visiblePct != null ? `${summary.visiblePct}/100` : '--',
         tone: visibilityTone,
       },
       {
