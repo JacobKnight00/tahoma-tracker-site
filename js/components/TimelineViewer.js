@@ -1,7 +1,13 @@
 // Timeline Viewer Component
 // Embedded timeline viewer for the home page
 
-import { getImageUrl, fetchAnalysis, fetchDailyManifest, fetchMonthlyManifest } from '../lib/api.js';
+import {
+  getImageUrl,
+  fetchAnalysis,
+  fetchAlignmentManifest,
+  fetchDailyManifest,
+  fetchMonthlyManifest,
+} from '../lib/api.js';
 import { formatTime, formatTimestamp } from '../utils/format.js';
 import {
   buildSidebarStats,
@@ -14,6 +20,14 @@ import { config } from '../../config/config.js';
 import { CalendarPicker } from './CalendarPicker.js';
 
 const DAY_IMAGE_PRELOAD_CONCURRENCY = 10;
+
+function formatTimeForManifest(date) {
+  if (!(date instanceof Date) || Number.isNaN(date.getTime())) {
+    return null;
+  }
+
+  return `${String(date.getHours()).padStart(2, '0')}${String(date.getMinutes()).padStart(2, '0')}`;
+}
 
 export class TimelineViewer {
   constructor(options) {
@@ -36,6 +50,7 @@ export class TimelineViewer {
     this.dateStatusCache = new Map(); // Cache for date availability status
     this.monthlyManifestCache = new Map(); // Cache for monthly manifests
     this.currentDayManifest = null; // Store current day's manifest for visibility data
+    this.currentAlignmentManifest = null;
     this.currentDayTimelineImages = [];
     this.currentDayStats = null; // Store current day's summary stats
     this.dayLoadState = {
@@ -331,6 +346,15 @@ export class TimelineViewer {
     return this.currentDayTimelineImages
       .map((img) => createDateFromManifestEntry(manifest.date, img.time))
       .filter((frame) => frame !== null);
+  }
+
+  getAlignmentForTime(time) {
+    const entries = this.currentAlignmentManifest?.entries;
+    if (!Array.isArray(entries) || !time) {
+      return null;
+    }
+
+    return entries.find((entry) => entry?.time === time) || null;
   }
 
   setupKeyboardNavigation() {
@@ -818,6 +842,7 @@ export class TimelineViewer {
         if (this._viewId !== viewId) {
           return;
         }
+        data.alignment = this.getAlignmentForTime(formatTimeForManifest(currentFrame));
         this.metadataDisplay.render(data);
         
         // Notify parent about image change
@@ -897,6 +922,18 @@ export class TimelineViewer {
       }
 
       if (this._loadId !== myLoadId) return;
+
+      try {
+        this.currentAlignmentManifest = await fetchAlignmentManifest(this.getDateKey(this.currentDate), {
+          signal: this.activeManifestController.signal,
+        });
+      } catch (error) {
+        if (error?.name === 'AbortError') {
+          throw error;
+        }
+        console.warn(`Failed to load alignment manifest for ${this.getDateKey(this.currentDate)}:`, error);
+        this.currentAlignmentManifest = null;
+      }
 
       const displayWindow = getDisplayWindowMinutes(this.currentDayManifest?.daylight);
       const isCurrentPacificDay = this.currentDayManifest?.date === getCurrentPacificDateString();
@@ -1089,6 +1126,7 @@ export class TimelineViewer {
     this.currentFrameIndex = 0;
     this.imageCache.clear();
     this.currentDayManifest = latestData?.daily_manifest || null;
+    this.currentAlignmentManifest = null;
     this.currentDayTimelineImages = [];
     this.currentDayStats = null;
     this.setDayLoadState({

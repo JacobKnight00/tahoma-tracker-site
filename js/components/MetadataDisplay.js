@@ -344,6 +344,7 @@ export class MetadataDisplay {
     }
 
     const isFrameGood = this.modelData.frame_state === 'good';
+    const alignment = this.modelData.alignment || null;
     const visibilityValue = isFrameGood
       ? (this.modelData.visibility ? snakeToTitle(String(this.modelData.visibility)) : '--')
       : 'N/A - bad frame';
@@ -351,6 +352,15 @@ export class MetadataDisplay {
       && this.modelData.visibility_prob !== null
       && this.modelData.visibility_prob !== undefined
       ? formatPercent(this.modelData.visibility_prob, 1)
+      : '--';
+    const alignmentConfidence = Number.isFinite(alignment?.confidence)
+      ? alignment.confidence.toFixed(2)
+      : '--';
+    const xAdjustment = Number.isFinite(alignment?.dx)
+      ? `${alignment.dx > 0 ? '+' : ''}${alignment.dx}px`
+      : '--';
+    const yAdjustment = Number.isFinite(alignment?.dy)
+      ? `${alignment.dy > 0 ? '+' : ''}${alignment.dy}px`
       : '--';
 
     return {
@@ -379,6 +389,18 @@ export class MetadataDisplay {
         {
           label: 'Model Version',
           value: this.modelData.model_version || '--',
+        },
+        {
+          label: 'Alignment Confidence',
+          value: alignmentConfidence,
+        },
+        {
+          label: 'X Adjustment',
+          value: xAdjustment,
+        },
+        {
+          label: 'Y Adjustment',
+          value: yAdjustment,
         },
       ],
     };

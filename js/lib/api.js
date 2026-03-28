@@ -118,6 +118,25 @@ function extractImageIdFromKey(value) {
   return match?.[1] || null;
 }
 
+function toDateString(dateInput) {
+  if (dateInput instanceof Date) {
+    const year = dateInput.getFullYear();
+    const month = String(dateInput.getMonth() + 1).padStart(2, '0');
+    const day = String(dateInput.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  }
+
+  return dateInput;
+}
+
+function findEntryByTime(entries, time) {
+  if (!Array.isArray(entries) || !time) {
+    return null;
+  }
+
+  return entries.find((entry) => entry?.time === time) || null;
+}
+
 function resolveImageId(source = {}) {
   const directId = source.imageId || source.image_id;
   if (directId) {
@@ -267,6 +286,14 @@ export async function fetchLatest() {
 
   // Fetch full analysis for rich data (probabilities, model version, etc.)
   const data = await fetchAnalysis(imageId);
+
+  try {
+    const alignmentManifest = await fetchAlignmentManifest(manifest.date);
+    data.alignment = findEntryByTime(alignmentManifest.entries, lastImage.time);
+  } catch (error) {
+    console.warn(`Failed to fetch alignment manifest for ${manifest.date}:`, error);
+    data.alignment = null;
+  }
   
   // Add last_checked_at from manifest
   data.last_checked_at = manifest.last_checked_at;
@@ -445,23 +472,14 @@ export function getImageUrl(keyOrTimestamp) {
 export async function fetchDailyManifest(dateInput, version = null, options = {}) {
   const { signal } = options;
   const modelVersion = version || config.models.current;
-  
-  let dateStr;
-  if (dateInput instanceof Date) {
-    const year = dateInput.getFullYear();
-    const month = String(dateInput.getMonth() + 1).padStart(2, '0');
-    const day = String(dateInput.getDate()).padStart(2, '0');
-    dateStr = `${year}-${month}-${day}`;
-  } else {
-    dateStr = dateInput;
-  }
+  const dateStr = toDateString(dateInput);
   
   const today = new Date();
   const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
   
   let path;
-  if (dateStr === todayStr && modelVersion === config.models.current) {
-    path = 'manifests/daily/current.json';
+  if (dateStr === todayStr) {
+    path = `manifests/daily/${modelVersion}/current.json`;
   } else {
     const [year, month, day] = dateStr.split('-');
     path = `manifests/daily/${modelVersion}/${year}/${month}/${day}.json`;
@@ -472,6 +490,35 @@ export async function fetchDailyManifest(dateInput, version = null, options = {}
 
   if (!response.ok) {
     throw new Error(`Failed to fetch daily manifest for ${dateStr}: ${response.statusText}`);
+  }
+
+  return response.json();
+}
+
+/**
+ * Fetch daily alignment manifest for a date
+ * @param {Date|string} dateInput - Date object or date in YYYY-MM-DD format
+ * @returns {Promise<Object>} Alignment manifest with entries array
+ */
+export async function fetchAlignmentManifest(dateInput, options = {}) {
+  const { signal } = options;
+  const dateStr = toDateString(dateInput);
+  const today = new Date();
+  const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+
+  let path;
+  if (dateStr === todayStr) {
+    path = 'manifests/daily/alignment/current.json';
+  } else {
+    const [year, month, day] = dateStr.split('-');
+    path = `manifests/daily/alignment/${year}/${month}/${day}.json`;
+  }
+
+  const url = new URL(path, config.imageBaseUrl);
+  const response = await fetch(url.toString(), { signal });
+
+  if (!response.ok) {
+    throw new Error(`Failed to fetch alignment manifest for ${dateStr}: ${response.statusText}`);
   }
 
   return response.json();
@@ -492,8 +539,8 @@ export async function fetchMonthlyManifest(year, month, version = null) {
   const isCurrentMonth = year === today.getFullYear() && month === (today.getMonth() + 1);
   
   let path;
-  if (isCurrentMonth && modelVersion === config.models.current) {
-    path = 'manifests/monthly/current.json';
+  if (isCurrentMonth) {
+    path = `manifests/monthly/${modelVersion}/current.json`;
   } else {
     path = `manifests/monthly/${modelVersion}/${year}/${monthStr}.json`;
   }

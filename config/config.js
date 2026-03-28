@@ -17,8 +17,8 @@ export const config = {
 
   // Model configuration
   models: {
-    current: 'v2',
-    available: ['v1', 'v2'],
+    current: 'v3',
+    available: ['v1', 'v2', 'v3'],
   },
 
   // Date range for historical data
