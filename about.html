@@ -29,7 +29,7 @@
         "name": "How were the models trained?",
         "acceptedAnswer": {
           "@type": "Answer",
-          "text": "By hand — thousands of images were manually labeled across both frame state and visibility categories. An admin labeling page was built to speed this up, allowing filtering by model confidence, classification, and other qualities to target images where the model was least sure and refine the training data iteratively for greater accuracy."
+          "text": "By hand! Thousands of images were manually labeled across both frame state and visibility categories. An admin rapid labeling page was built to speed this up, with hotkeys and background label submission. It also allows filtering by the previous model confidence, classification, and other qualities to target images where the model was least sure and refine the training data iteratively for greater accuracy."
         }
       },
       {
@@ -37,15 +37,15 @@
         "name": "Why are there two classifiers instead of one?",
         "acceptedAnswer": {
           "@type": "Answer",
-          "text": "The webcam doesn't always produce a clean image. The camera can drift off-target, the lens can fog up, or it can simply be dark out. The frame-state classifier catches these cases first so the visibility model only runs on images where a meaningful classification is possible. Without this step, a dark nighttime image might be classified as 'not visible' when really there's just nothing to see."
+          "text": "The webcam doesn't always produce a clean image. The camera can point off-target, there may be too much fog to see, or it can simply be dark out. The frame-state classifier catches these cases first so the visibility model only runs on images where a meaningful classification is possible. Without this step, a dark nighttime image might be classified as 'not visible' when really there's just nothing to see."
         }
       },
       {
         "@type": "Question",
-        "name": "The image looks old — is the tracker broken?",
+        "name": "The image isn't updating! Is the tracker broken?",
         "acceptedAnswer": {
           "@type": "Answer",
-          "text": "Probably not. The webcam source occasionally goes down for maintenance or technical issues, and the tracker can only process what's available. If the latest image is more than 10-20 minutes old, the camera is likely temporarily offline. The tracker will pick back up automatically when new images appear."
+          "text": "Probably not. The webcam source often publishes images every 20 minutes instead of every 10. It also occasionally goes down, perhaps for maintenance or technical issues, and the tracker can only process what's available. If the latest image is more than 10-20 minutes old, the camera is likely temporarily offline. The tracker will pick back up automatically when new images appear."
         }
       }
     ]
@@ -77,8 +77,8 @@
       <h1 class="about-hero__title">How It Works</h1>
       <p class="about-hero__lead">
         <strong>Is the mountain out?</strong> is a question Seattle locals have been asking for decades.
-        Views of Mount Rainier — or <a href="https://en.wikipedia.org/wiki/Mount_Rainier#Name" target="_blank" rel="noopener">Tahoma</a>,
-        as it was called by local Indigenous peoples — are always a gift, especially during the
+        Views of Mount Rainier (or <a href="https://en.wikipedia.org/wiki/Mount_Rainier#Name" target="_blank" rel="noopener">Tahoma</a>,
+        as it was called by local Indigenous peoples) are always a gift, especially during the
         <a href="https://en.wikipedia.org/wiki/Pacific_Northwest#The_Big_Dark" target="_blank" rel="noopener">Big Dark</a>,
         the gloomy part of the year when I started working on this project.
       </p>
@@ -174,15 +174,15 @@
       <section class="about-section">
         <h2>The Alignment Problem</h2>
         <p>
-          The webcam is fixed to the top of the Space Needle, but the panorama alignment drifts over time,
-          sometimes significantly. The orange box in these images shows where the model's crop region falls.
+          The webcam is fixed to the top of the Space Needle, but the panorama's directional alignment is not always perfect and can be shifted,
+          sometimes significantly. The orange box in these images shows where the visibility model's mountain-specific crop region falls.
           When the camera has drifted, that crop lands on buildings instead of Mount Rainier:
         </p>
 
         <div class="alignment-examples" aria-label="Alignment before and after">
           <div class="alignment-example">
             <img src="/assets/images/alignment-before.jpg"
-                 alt="Panorama with crop box highlighting downtown Seattle buildings — camera has drifted away from Mount Rainier"
+                 alt="Panorama with crop box highlighting downtown Seattle buildings, camera has drifted away from Mount Rainier"
                  class="alignment-example__img"
                  width="600" height="450"
                  loading="lazy">
@@ -199,7 +199,7 @@
         </div>
 
         <p>
-          Earlier versions used a generous, fixed crop from the panorama — which meant the visibility
+          Earlier versions used the wide display crop for visibility training rather than a narrow mountain-specific crop, which meant the visibility
           model was learning from the surrounding sky and cityscape, not just the mountain itself.
           The current version corrects for camera drift by aligning each panorama against a reference
           image before extracting a tight crop around Mount Rainier.
@@ -207,7 +207,7 @@
         <p>
           The impact was significant: of roughly 9,400 images previously classified as "off-target"
           by the old model, alignment recovered over 80% of them. Nearly 1,800 of those turned out
-          to have the mountain visible — images that were being thrown away entirely.
+          to have the mountain visible.
         </p>
       </section>
 
@@ -217,26 +217,27 @@
         <details class="faq-item">
           <summary class="faq-item__question">How were the models trained?</summary>
           <p class="faq-item__answer">
-            By hand — thousands of images were manually labeled across both frame state and visibility
-            categories. I built an admin labeling page to speed this up, which lets me filter images by
-            model confidence, classification, and other qualities so I could target the images where the
-            model was least sure and refine the training data iteratively for greater accuracy.
+            By hand! Thousands of images were manually labeled across both frame state and visibility
+            categories. I built an admin rapid labeling page to speed this up, which allows me to use hotkeys and background label submission. It also
+            lets me filter images by the previous model confidence, classification, and other qualities so I can target the images where the
+            model is least sure and refine the training data iteratively for greater accuracy.
           </p>
         </details>
         <details class="faq-item">
           <summary class="faq-item__question">Why are there two classifiers instead of one?</summary>
           <p class="faq-item__answer">
-            The webcam doesn't always produce a clean image. The camera can drift off-target, the lens can
-            fog up, or it can simply be dark out. The frame-state classifier catches these cases first so
+            The webcam doesn't always produce a clean image. The camera can point off-target, there may be too much fog to see,
+            or it can simply be dark out. The frame-state classifier catches these cases first so
             the visibility model only runs on images where a meaningful classification is possible. Without
             this step, a dark nighttime image might be classified as "not visible" when really there's just
             nothing to see.
           </p>
         </details>
         <details class="faq-item">
-          <summary class="faq-item__question">The image looks old — is the tracker broken?</summary>
+          <summary class="faq-item__question">The image isn't updating! Is the tracker broken?</summary>
           <p class="faq-item__answer">
-            Probably not. The webcam source occasionally goes down for maintenance or technical issues, and
+            Probably not. The webcam source often publishes images every 20 minutes instead of every 10. It also
+            occasionally goes down, perhaps for maintenance or technical issues, and
             the tracker can only process what's available. If the latest image is more than 10–20 minutes
             old, the camera is likely temporarily offline. The tracker will pick back up automatically when
             new images appear.
@@ -250,10 +251,7 @@
         <p>
           I'm Jacob Knight, a Software Development Engineer based in Seattle with experience in distributed
           systems. This was a side project to explore ML, built during the Big Dark when I needed something
-          to look forward to. The code is open source:
-          <a href="https://github.com/JacobKnight00/tahoma-tracker-site" target="_blank" rel="noopener">frontend</a>,
-          <a href="https://github.com/JacobKnight00/tahoma-tracker-cdk" target="_blank" rel="noopener">backend</a>.
-          You can also find me on
+          to look forward to. You can find me on
           <a href="https://www.linkedin.com/in/jacobfk/" target="_blank" rel="noopener">LinkedIn</a>.
         </p>
       </section>
