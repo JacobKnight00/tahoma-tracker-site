@@ -1,7 +1,7 @@
 // Image Viewer Component
 // Displays the webcam image
 
-import { getImageUrl } from '../lib/api.js';
+import { getImageUrl, shouldClientCropMountain, getMountainCrop } from '../lib/api.js';
 import { createElement, clearElement } from '../utils/dom.js';
 
 export class ImageViewer {
@@ -275,6 +275,68 @@ export class ImageViewer {
   }
 
   /**
+   * Add or remove the mountain crop overlay on the wrapper.
+   * Uses a div positioned over the crop region with a large box-shadow
+   * to darken everything outside the zone.
+   *
+   * Accounts for object-fit: cover by computing where the image actually
+   * renders within the wrapper, then positions the overlay in pixel coords
+   * relative to the wrapper.
+   */
+  updateMountainOverlay(wrapper) {
+    // Remove any existing overlay
+    const existing = wrapper.querySelector('.image-viewer__mountain-overlay');
+    if (existing) existing.remove();
+
+    if (!shouldClientCropMountain()) return;
+
+    const img = wrapper.querySelector('img');
+    if (!img || !img.naturalWidth) return;
+
+    const frac = getMountainCrop(); // fractional coords (0-1)
+    const natW = img.naturalWidth;
+    const natH = img.naturalHeight;
+    const cW = wrapper.clientWidth;
+    const cH = wrapper.clientHeight;
+
+    // Compute rendered image size & offset under object-fit: cover
+    const scale = Math.max(cW / natW, cH / natH);
+    const rendW = natW * scale;
+    const rendH = natH * scale;
+    const offX = (cW - rendW) / 2;
+    const offY = (cH - rendH) / 2;
+
+    // Map fractional crop box → wrapper pixel coords
+    const cropLeft = offX + frac.x * rendW;
+    const cropTop = offY + frac.y * rendH;
+    const cropW = frac.w * rendW;
+    const cropH = frac.h * rendH;
+
+    // Convert to wrapper percentages so it stays responsive
+    const leftPct = (cropLeft / cW * 100).toFixed(2);
+    const topPct = (cropTop / cH * 100).toFixed(2);
+    const widthPct = (cropW / cW * 100).toFixed(2);
+    const heightPct = (cropH / cH * 100).toFixed(2);
+
+    const overlay = document.createElement('div');
+    overlay.className = 'image-viewer__mountain-overlay';
+    overlay.style.cssText = `
+      position: absolute;
+      left: ${leftPct}%;
+      top: ${topPct}%;
+      width: ${widthPct}%;
+      height: ${heightPct}%;
+      box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.7);
+      z-index: 2;
+      pointer-events: none;
+      border: 1px solid rgba(255, 255, 255, 0.4);
+      overflow: hidden;
+    `;
+    wrapper.style.overflow = 'hidden';
+    wrapper.appendChild(overlay);
+  }
+
+  /**
    * Render image from URL directly with optional cache check
    * @param {string} url - Image URL
    * @param {string} altText - Alt text
@@ -307,10 +369,13 @@ export class ImageViewer {
         alt: altText,
       });
 
-      // Remove spinner and other images
-      wrapper.querySelectorAll('.image-viewer__spinner, img').forEach(el => el.remove());
-      this.removeLoadingOverlay();
+      // Append new image FIRST, then remove old ones — avoids white flash
       wrapper.appendChild(img);
+      wrapper.querySelectorAll('.image-viewer__spinner, img').forEach(el => {
+        if (el !== img) el.remove();
+      });
+      this.removeLoadingOverlay();
+      this.updateMountainOverlay(wrapper);
       return Promise.resolve(true);
     }
 
@@ -336,6 +401,7 @@ export class ImageViewer {
           if (el !== img) el.remove();
         });
         this.removeLoadingOverlay();
+        this.updateMountainOverlay(wrapper);
         resolve(true);
       });
 

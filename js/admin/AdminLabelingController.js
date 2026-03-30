@@ -505,6 +505,14 @@ export class AdminLabelingController {
   }
 
   /**
+   * Clear the preloaded image cache (e.g., after switching image source)
+   */
+  clearImageCache() {
+    this.imageCache.clear();
+    this.loadingPromises.clear();
+  }
+
+  /**
    * Check if there are unsaved labels in batch
    */
   hasUnsavedLabels() {

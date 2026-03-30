@@ -41,6 +41,26 @@
             <button id="apply-filters" class="button button--primary">Apply</button>
             <button id="reset-filters" class="button button--ghost">Reset</button>
           </div>
+
+          <div class="filter-panel__image-source">
+            <div class="filter-group filter-group--inline">
+              <label>Source:
+                <select id="image-source" class="input input--compact">
+                  <option value="cdn">CDN</option>
+                  <option value="local">Local</option>
+                </select>
+              </label>
+              <label>Crop:
+                <select id="crop-type" class="input input--compact">
+                  <option value="display">Display</option>
+                  <option value="mountain">Mountain</option>
+                </select>
+              </label>
+              <input type="text" id="local-server-url" class="input input--compact"
+                     value="http://localhost:8080" placeholder="Local server URL"
+                     style="width: 180px; display: none;">
+            </div>
+          </div>
           
           <details class="filter-details">
             <summary class="filter-summary">Advanced Filters</summary>

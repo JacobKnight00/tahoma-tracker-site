@@ -357,6 +357,33 @@ export class TimelineViewer {
     return entries.find((entry) => entry?.time === time) || null;
   }
 
+  getManifestEntryForTime(time) {
+    const images = this.currentDayTimelineImages || [];
+    if (!time || images.length === 0) {
+      return null;
+    }
+    return images.find((img) => img.time === time) || null;
+  }
+
+  buildModelDataFromManifest(entry, frame) {
+    if (!entry) {
+      return { frame_state: null, visibility: null, ts: frame?.toISOString() || null };
+    }
+
+    const timeKey = entry.time;
+    const alignment = this.getAlignmentForTime(timeKey);
+
+    return {
+      ts: frame?.toISOString() || null,
+      frame_state: entry.frame_state || null,
+      frame_state_probability: entry.frame_state_prob ?? null,
+      visibility: entry.visibility ?? null,
+      visibility_prob: entry.visibility_prob ?? null,
+      model_version: config.models.current,
+      alignment,
+    };
+  }
+
   setupKeyboardNavigation() {
     // Set up keyboard navigation
     document.addEventListener('keydown', (e) => {
@@ -666,16 +693,13 @@ export class TimelineViewer {
     const denominator = Math.max(1, this.frames.length - 1);
     const percent = (this.currentFrameIndex / denominator) * 100;
     this.scrubberHandle.style.left = `${percent}%`;
-    
+
     if (this.scrubberProgress) {
       this.scrubberProgress.style.width = `${percent}%`;
     }
-    
+
     // Update handle fill color based on current segment
     this.updateHandleColor();
-    
-    // Update visibility segments on scrubber
-    this.updateScrubberSegments();
   }
   
   /**
@@ -783,7 +807,6 @@ export class TimelineViewer {
   async updateView(options = {}) {
     if (this.frames.length === 0) return;
     
-    const viewId = ++this._viewId;
     const currentFrame = this.frames[this.currentFrameIndex];
     const imageUrl = getImageUrl(currentFrame.toISOString());
     
@@ -830,33 +853,16 @@ export class TimelineViewer {
       return imageRenderPromise;
     }
     
-    // Fetch and update metadata (async, don't await to keep it fast)
-    if (this.activeAnalysisController) {
-      this.activeAnalysisController.abort();
+    // Build metadata from manifest (already loaded) — no network request needed
+    const timeKey = formatTimeForManifest(currentFrame);
+    const manifestEntry = this.getManifestEntryForTime(timeKey);
+    const data = this.buildModelDataFromManifest(manifestEntry, currentFrame);
+    this.metadataDisplay.render(data);
+
+    if (this.onImageChange) {
+      const isLatest = this.isAtLatestFrame();
+      this.onImageChange(data, isLatest ? null : currentFrame);
     }
-
-    this.activeAnalysisController = new AbortController();
-
-    fetchAnalysis(currentFrame.toISOString(), null, { signal: this.activeAnalysisController.signal })
-      .then(data => {
-        if (this._viewId !== viewId) {
-          return;
-        }
-        data.alignment = this.getAlignmentForTime(formatTimeForManifest(currentFrame));
-        this.metadataDisplay.render(data);
-        
-        // Notify parent about image change
-        if (this.onImageChange) {
-          const isLatestFrame = this.isAtLatestFrame();
-          this.onImageChange(data, isLatestFrame ? null : currentFrame);
-        }
-      })
-      .catch(error => {
-        if (error?.name === 'AbortError') {
-          return;
-        }
-        console.error('Failed to fetch analysis:', error);
-      });
 
     this.updateLatestButton();
     return imageRenderPromise;
@@ -946,8 +952,9 @@ export class TimelineViewer {
         }
       }
 
-      // Update stats right after loading frames (when manifest data is fresh)
+      // Update stats and scrubber segments once per day load
       this.updateStatsDisplay();
+      this.updateScrubberSegments();
 
       if (this.frames.length === 0) {
         if (this.timeDisplay) {

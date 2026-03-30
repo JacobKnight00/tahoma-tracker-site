@@ -9,6 +9,46 @@ let cachedAnalysisVersion = config.models.current;
 const IMAGE_ID_REGEX = /^(\d{4})\/(\d{2})\/(\d{2})\/(\d{2})(\d{2})$/;
 
 // ---------------------------------------------------------------------------
+// Local Image Source Override (for label cleansing)
+// ---------------------------------------------------------------------------
+
+let localImageSource = {
+  enabled: false,
+  baseUrl: 'http://localhost:8080',
+  cropType: 'display', // 'display' or 'mountain'
+};
+
+// Mountain crop box as fractions of display crop (works for any resolution)
+// Original pixels: (450, 225, 300, 150) in 1200×900
+const MOUNTAIN_CROP = { x: 450 / 1200, y: 225 / 900, w: 300 / 1200, h: 150 / 900 };
+
+/**
+ * Configure local image source for label cleansing.
+ * When enabled, getImageUrl() serves from a local HTTP server instead of CDN.
+ */
+export function setLocalImageSource({ enabled, baseUrl, cropType }) {
+  if (enabled !== undefined) localImageSource.enabled = enabled;
+  if (baseUrl !== undefined) localImageSource.baseUrl = baseUrl.replace(/\/$/, '');
+  if (cropType !== undefined) localImageSource.cropType = cropType;
+}
+
+export function getLocalImageSource() {
+  return { ...localImageSource };
+}
+
+export function getMountainCrop() {
+  return { ...MOUNTAIN_CROP };
+}
+
+/**
+ * Return true when the viewer should apply a client-side mountain crop
+ * (CDN source + mountain crop type selected).
+ */
+export function shouldClientCropMountain() {
+  return !localImageSource.enabled && localImageSource.cropType === 'mountain';
+}
+
+// ---------------------------------------------------------------------------
 // Error Handling
 // ---------------------------------------------------------------------------
 
@@ -437,6 +477,24 @@ export function getImageUrl(keyOrTimestamp) {
   // If it starts with http, it's already a full URL
   if (value.startsWith('http')) {
     return value;
+  }
+
+  // Local image source: serve from local HTTP server instead of CDN
+  if (localImageSource.enabled) {
+    // Extract image ID from whatever format we're given
+    let imageId = value;
+    if (value.includes('needle-cam/cropped-images/')) {
+      imageId = value.replace('needle-cam/cropped-images/', '').replace('.jpg', '');
+    } else {
+      imageId = value.replace('.json', '').replace('.jpg', '');
+    }
+
+    if (IMAGE_ID_REGEX.test(imageId)) {
+      // Local files use underscores: 2025_01_15_1400.jpg
+      const filename = imageId.replace(/\//g, '_') + '.jpg';
+      const folder = localImageSource.cropType === 'mountain' ? 'mountain_crops' : 'aligned_crops';
+      return `${localImageSource.baseUrl}/${folder}/${filename}`;
+    }
   }
 
   // If it looks like a direct S3 key or already has an extension

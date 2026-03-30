@@ -3,15 +3,34 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" content="Is Mt. Rainier visible right now? Check the current visibility status from the Space Needle webcam.">
+  <meta name="description" content="Is the mountain out? ML-powered Mount Rainier visibility tracker, updated every 10 minutes from the Space Needle webcam.">
+  <meta name="robots" content="index, follow">
   <title>Is Mt. Rainier Out? | Tahoma Tracker</title>
+
+  <!-- Canonical -->
+  <link rel="canonical" href="https://tahomatracker.com/">
 
   <!-- Open Graph -->
   <meta property="og:title" content="Is Mt. Rainier Out? | Tahoma Tracker">
-  <meta property="og:description" content="ML-powered visibility tracker for Mt. Rainier, updated every 10 minutes from the Space Needle webcam.">
+  <meta property="og:description" content="ML-powered Mount Rainier visibility tracker, updated every 10 minutes from the Space Needle webcam.">
   <meta property="og:type" content="website">
-  <meta property="og:url" content="https://tahomatracker.com">
+  <meta property="og:url" content="https://tahomatracker.com/">
   <meta property="og:image" content="https://tahomatracker.com/assets/images/og-preview.png">
+  <meta property="og:site_name" content="Tahoma Tracker">
+
+  <!-- Structured Data -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "WebApplication",
+    "name": "Tahoma Tracker",
+    "url": "https://tahomatracker.com",
+    "description": "ML-powered Mount Rainier visibility tracker, updated every 10 minutes from the Space Needle webcam.",
+    "applicationCategory": "WeatherApplication",
+    "operatingSystem": "Any",
+    "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" }
+  }
+  </script>
 
   <!-- Favicon -->
   <link rel="icon" type="image/svg+xml" href="/favicon.svg">
@@ -29,7 +48,12 @@
   <link rel="stylesheet" href="/css/pages/home.css">
 </head>
 <body>
+  <nav class="site-nav">
+    <a href="/" class="site-nav__brand" aria-label="Home">Tahoma Tracker</a>
+    <a href="/about.html" class="site-nav__link">How It Works</a>
+  </nav>
   <main class="container">
+    <h1 class="sr-only">Mount Rainier Visibility Tracker — Is the Mountain Out Today?</h1>
     <!-- Status Section -->
     <section class="status-section" aria-label="Current visibility status">
       <div class="status-strip">
@@ -54,6 +78,7 @@
           </div>
         </div>
       </div>
+      <p class="status-strip__subtitle">ML-powered Mount Rainier visibility tracker, updated every 10 minutes from the Space Needle</p>
     </section>
 
     <!-- Image and Metadata Section -->
@@ -129,9 +154,6 @@
       </p>
       <p class="footer__text footer__text--small">
         Last checked: <span id="last-checked">--</span>
-      </p>
-      <p class="footer__text footer__text--small">
-        <a href="/about.html">About this project</a>
       </p>
     </footer>
   </main>

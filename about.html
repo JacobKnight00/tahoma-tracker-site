@@ -3,15 +3,54 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" content="About Tahoma Tracker - an ML-powered Mt. Rainier visibility tracker.">
-  <title>About | Tahoma Tracker</title>
+  <meta name="description" content="How Tahoma Tracker uses machine learning to answer the classic Seattle question: is the mountain out? Learn about the image pipeline, frame classification, and alignment system.">
+  <meta name="robots" content="index, follow">
+  <title>How It Works | Tahoma Tracker</title>
+
+  <!-- Canonical -->
+  <link rel="canonical" href="https://tahomatracker.com/about.html">
 
   <!-- Open Graph -->
-  <meta property="og:title" content="About | Tahoma Tracker">
-  <meta property="og:description" content="How Tahoma Tracker uses ML to answer the classic Seattle question: is the mountain out?">
+  <meta property="og:title" content="How It Works | Tahoma Tracker">
+  <meta property="og:description" content="How Tahoma Tracker uses machine learning to answer the classic Seattle question: is the mountain out?">
   <meta property="og:type" content="website">
   <meta property="og:url" content="https://tahomatracker.com/about.html">
   <meta property="og:image" content="https://tahomatracker.com/assets/images/og-preview.png">
+  <meta property="og:site_name" content="Tahoma Tracker">
+
+  <!-- Structured Data -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    "mainEntity": [
+      {
+        "@type": "Question",
+        "name": "How were the models trained?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "By hand — thousands of images were manually labeled across both frame state and visibility categories. An admin labeling page was built to speed this up, allowing filtering by model confidence, classification, and other qualities to target images where the model was least sure and refine the training data iteratively for greater accuracy."
+        }
+      },
+      {
+        "@type": "Question",
+        "name": "Why are there two classifiers instead of one?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "The webcam doesn't always produce a clean image. The camera can drift off-target, the lens can fog up, or it can simply be dark out. The frame-state classifier catches these cases first so the visibility model only runs on images where a meaningful classification is possible. Without this step, a dark nighttime image might be classified as 'not visible' when really there's just nothing to see."
+        }
+      },
+      {
+        "@type": "Question",
+        "name": "The image looks old — is the tracker broken?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "Probably not. The webcam source occasionally goes down for maintenance or technical issues, and the tracker can only process what's available. If the latest image is more than 10-20 minutes old, the camera is likely temporarily offline. The tracker will pick back up automatically when new images appear."
+        }
+      }
+    ]
+  }
+  </script>
 
   <!-- Favicon -->
   <link rel="icon" type="image/svg+xml" href="/favicon.svg">
@@ -29,39 +68,82 @@
   <link rel="stylesheet" href="/css/pages/about.css">
 </head>
 <body>
+  <nav class="site-nav">
+    <a href="/" class="site-nav__brand">&larr; Tahoma Tracker</a>
+  </nav>
   <main class="container">
-    <!-- Header -->
-    <section class="status-section" aria-label="About page">
-      <div class="status-header">
-        <h1 class="page-title">About</h1>
-        <a href="/" class="back-link">&larr; Back to Tahoma</a>
-      </div>
+    <!-- Hero -->
+    <section class="about-hero" aria-label="Introduction">
+      <h1 class="about-hero__title">How It Works</h1>
+      <p class="about-hero__lead">
+        <strong>Is the mountain out?</strong> is a question Seattle locals have been asking for decades.
+        Views of Mount Rainier — or <a href="https://en.wikipedia.org/wiki/Mount_Rainier#Name" target="_blank" rel="noopener">Tahoma</a>,
+        as it was called by local Indigenous peoples — are always a gift, especially during the
+        <a href="https://en.wikipedia.org/wiki/Pacific_Northwest#The_Big_Dark" target="_blank" rel="noopener">Big Dark</a>,
+        the gloomy part of the year when I started working on this project.
+      </p>
+      <p class="about-hero__lead">
+        Tahoma Tracker tries to answer that question automatically. It pulls webcam images from the
+        Space Needle, runs them through a machine learning pipeline, and reports whether the mountain
+        is visible.
+      </p>
     </section>
 
-    <!-- Content -->
+    <!-- Pipeline Overview -->
     <article class="about-content">
       <section class="about-section">
+        <h2>The Pipeline</h2>
         <p>
-          <strong>Is the mountain out?</strong> is a question locals have been asking for decades.
-          Views of Mount Rainier (or <a href="https://en.wikipedia.org/wiki/Mount_Rainier#Name" target="_blank" rel="noopener">Tahoma</a>
-          as it was called by local Indigenous peoples) are always a gift and a joy, especially during the
-          <a href="https://en.wikipedia.org/wiki/Pacific_Northwest#The_Big_Dark" target="_blank" rel="noopener">Big Dark</a>,
-          the time of year I started working on this project. As a local developer, I thought it'd be fun
-          to try to answer that question automatically as a way to explore ML implementations.
+          Every 10 minutes, an AWS Lambda function fetches the latest panorama from the Space Needle webcam
+          and crops it down to the region where Mount Rainier appears. That cropped image goes through two
+          classification models in sequence:
         </p>
-      </section>
 
-      <section class="about-section">
-        <h2>How it works</h2>
+        <div class="pipeline-stages">
+          <div class="pipeline-stage">
+            <div class="pipeline-stage__number">1</div>
+            <div class="pipeline-stage__content">
+              <h3 class="pipeline-stage__title">Frame State</h3>
+              <p class="pipeline-stage__desc">
+                Is this image usable? The camera can drift off-target, there may be heavy blur,
+                or it can simply be dark out. This model filters those cases so the visibility
+                model only sees clean images.
+              </p>
+              <div class="pipeline-stage__labels">
+                <span class="pill pill--positive">Good</span>
+                <span class="pill pill--negative">Off-target</span>
+                <span class="pill pill--negative">Dark</span>
+                <span class="pill pill--negative">Bad</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="pipeline-connector" aria-hidden="true">
+            <span class="pipeline-connector__line"></span>
+            <span class="pipeline-connector__label">if good</span>
+          </div>
+
+          <div class="pipeline-stage">
+            <div class="pipeline-stage__number">2</div>
+            <div class="pipeline-stage__content">
+              <h3 class="pipeline-stage__title">Visibility</h3>
+              <p class="pipeline-stage__desc">
+                If the frame is good, can we see the mountain? The model classifies whether
+                Rainier is fully visible, partially obscured by clouds, or completely hidden.
+              </p>
+              <div class="pipeline-stage__labels">
+                <span class="pill pill--positive">Out</span>
+                <span class="pill" style="background: var(--color-nps-brown-light); color: var(--color-nps-brown-dark);">Partially Out</span>
+                <span class="pill pill--negative">Not Out</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <p>
-          It pulls panorama images provided by the Space Needle about every 10 minutes and crops them
-          down to where the mountain is usually placed within the frame. From there, I trained models to:
+          The results, along with the cropped image, are stored in S3 and served through CloudFront.
+          The website pulls the latest data and displays it on the <a href="/">homepage</a>.
         </p>
-        <ol class="about-list">
-          <li>Detect if the frame is good, or if it is bad (blurry, off-target, or dark)</li>
-          <li>If it's a good frame, classify whether the mountain is out, partially out, or not out</li>
-        </ol>
-        <p>This data is then pulled into the website to provide a history of when the mountain was out.</p>
 
         <div class="about-diagram">
           <div class="diagram-flow">
@@ -69,17 +151,17 @@
               <div class="diagram-box">Space Needle Webcam</div>
               <div class="diagram-label">every 10 min</div>
             </div>
-            <div class="diagram-arrow">&rarr;</div>
+            <div class="diagram-arrow" aria-hidden="true">&rarr;</div>
             <div class="diagram-step">
               <div class="diagram-box">AWS Lambda</div>
-              <div class="diagram-label">scrape + classify</div>
+              <div class="diagram-label">crop + classify</div>
             </div>
-            <div class="diagram-arrow">&rarr;</div>
+            <div class="diagram-arrow" aria-hidden="true">&rarr;</div>
             <div class="diagram-step">
               <div class="diagram-box">S3 / CloudFront</div>
-              <div class="diagram-label">store / cache</div>
+              <div class="diagram-label">store + serve</div>
             </div>
-            <div class="diagram-arrow">&rarr;</div>
+            <div class="diagram-arrow" aria-hidden="true">&rarr;</div>
             <div class="diagram-step">
               <div class="diagram-box">Website</div>
               <div class="diagram-label">you're here!</div>
@@ -88,42 +170,91 @@
         </div>
       </section>
 
+      <!-- Alignment Story -->
       <section class="about-section">
-        <h2>What I learned</h2>
-        <ul class="about-list">
-          <li>
-            <strong>Frontend development</strong> was totally new to me. This involved utilizing coding
-            assistants like Claude, Codex, and Copilot, and learning how to interface frontend websites
-            with backend resources through CDN.
-          </li>
-          <li>
-            <strong>ML pipelines</strong> taught me a lot about the difficulties of providing good training
-            data. I built a separate admin page to rapidly label thousands of images, then added comparison
-            filters to clean up disagreements between manual labels and original model predictions. I also
-            started exploring how to set up training pipelines from the collected data for generating new models.
-          </li>
-        </ul>
-      </section>
-
-      <section class="about-section">
-        <h2>Acknowledgments</h2>
+        <h2>The Alignment Problem</h2>
         <p>
-          I want to thank the Space Needle for providing the images that I use. When I first started,
-          I was trying to figure out how I would set up a camera from my apartment to capture images.
-          It would have taken months before I had enough to make valuable models. Being able to go back
-          and collect historical images was incredibly valuable.
+          The webcam is fixed to the top of the Space Needle, but the panorama alignment drifts over time,
+          sometimes significantly. The orange box in these images shows where the model's crop region falls.
+          When the camera has drifted, that crop lands on buildings instead of Mount Rainier:
+        </p>
+
+        <div class="alignment-examples" aria-label="Alignment before and after">
+          <div class="alignment-example">
+            <img src="/assets/images/alignment-before.jpg"
+                 alt="Panorama with crop box highlighting downtown Seattle buildings — camera has drifted away from Mount Rainier"
+                 class="alignment-example__img"
+                 width="600" height="450"
+                 loading="lazy">
+            <div class="alignment-example__caption">Before Alignment</div>
+          </div>
+          <div class="alignment-example">
+            <img src="/assets/images/alignment-after.jpg"
+                 alt="Same panorama after alignment with crop box correctly centered on Mount Rainier"
+                 class="alignment-example__img"
+                 width="600" height="450"
+                 loading="lazy">
+            <div class="alignment-example__caption">After Alignment</div>
+          </div>
+        </div>
+
+        <p>
+          Earlier versions used a generous, fixed crop from the panorama — which meant the visibility
+          model was learning from the surrounding sky and cityscape, not just the mountain itself.
+          The current version corrects for camera drift by aligning each panorama against a reference
+          image before extracting a tight crop around Mount Rainier.
+        </p>
+        <p>
+          The impact was significant: of roughly 9,400 images previously classified as "off-target"
+          by the old model, alignment recovered over 80% of them. Nearly 1,800 of those turned out
+          to have the mountain visible — images that were being thrown away entirely.
         </p>
       </section>
 
+      <!-- FAQ -->
       <section class="about-section">
-        <h2>About me</h2>
+        <h2>FAQ</h2>
+        <details class="faq-item">
+          <summary class="faq-item__question">How were the models trained?</summary>
+          <p class="faq-item__answer">
+            By hand — thousands of images were manually labeled across both frame state and visibility
+            categories. I built an admin labeling page to speed this up, which lets me filter images by
+            model confidence, classification, and other qualities so I could target the images where the
+            model was least sure and refine the training data iteratively for greater accuracy.
+          </p>
+        </details>
+        <details class="faq-item">
+          <summary class="faq-item__question">Why are there two classifiers instead of one?</summary>
+          <p class="faq-item__answer">
+            The webcam doesn't always produce a clean image. The camera can drift off-target, the lens can
+            fog up, or it can simply be dark out. The frame-state classifier catches these cases first so
+            the visibility model only runs on images where a meaningful classification is possible. Without
+            this step, a dark nighttime image might be classified as "not visible" when really there's just
+            nothing to see.
+          </p>
+        </details>
+        <details class="faq-item">
+          <summary class="faq-item__question">The image looks old — is the tracker broken?</summary>
+          <p class="faq-item__answer">
+            Probably not. The webcam source occasionally goes down for maintenance or technical issues, and
+            the tracker can only process what's available. If the latest image is more than 10–20 minutes
+            old, the camera is likely temporarily offline. The tracker will pick back up automatically when
+            new images appear.
+          </p>
+        </details>
+      </section>
+
+      <!-- About Me -->
+      <section class="about-section about-section--bio">
+        <h2>About Me</h2>
         <p>
           I'm Jacob Knight, a Software Development Engineer based in Seattle with experience in distributed
-          systems development. You can find me on LinkedIn <a href="https://www.linkedin.com/in/jacobfk/" target="_blank" rel="noopener">here</a>.
-        </p>
-        <p>
-          This was just a side project for fun and I've got some ideas on things to add (looking into an
-          Out Predictor using weather data), but if you want to provide any suggestions, feel free to send a message.
+          systems. This was a side project to explore ML, built during the Big Dark when I needed something
+          to look forward to. The code is open source:
+          <a href="https://github.com/JacobKnight00/tahoma-tracker-site" target="_blank" rel="noopener">frontend</a>,
+          <a href="https://github.com/JacobKnight00/tahoma-tracker-cdk" target="_blank" rel="noopener">backend</a>.
+          You can also find me on
+          <a href="https://www.linkedin.com/in/jacobfk/" target="_blank" rel="noopener">LinkedIn</a>.
         </p>
       </section>
     </article>
@@ -131,7 +262,7 @@
     <!-- Footer -->
     <footer class="footer">
       <p class="footer__text">
-        <a href="/">Back to Tahoma</a>
+        <a href="/">Check current visibility &rarr;</a>
       </p>
     </footer>
   </main>

@@ -5,6 +5,7 @@ import { AdminLabelingController } from './AdminLabelingController.js';
 import { ImageViewer } from '../components/ImageViewer.js';
 import { snakeToTitle } from '../utils/format.js';
 import { createKeyboardShortcuts } from '../utils/keyboard.js';
+import { setLocalImageSource } from '../lib/api.js';
 
 // State
 let controller;
@@ -151,6 +152,35 @@ function registerFilterHandlers() {
   document.getElementById('disagreements-only').addEventListener('change', (e) => {
     controller.updateFilter('disagreementsOnly', e.target.checked);
   });
+
+  // Image source toggle (CDN vs Local)
+  const imageSourceSelect = document.getElementById('image-source');
+  const cropTypeSelect = document.getElementById('crop-type');
+  const localServerInput = document.getElementById('local-server-url');
+
+  imageSourceSelect?.addEventListener('change', () => {
+    const isLocal = imageSourceSelect.value === 'local';
+    localServerInput.style.display = isLocal ? '' : 'none';
+    setLocalImageSource({
+      enabled: isLocal,
+      baseUrl: localServerInput.value,
+      cropType: cropTypeSelect.value,
+    });
+    controller.clearImageCache();
+    reloadCurrentImage();
+  });
+
+  cropTypeSelect?.addEventListener('change', () => {
+    setLocalImageSource({ cropType: cropTypeSelect.value });
+    controller.clearImageCache();
+    reloadCurrentImage();
+  });
+
+  localServerInput?.addEventListener('change', () => {
+    setLocalImageSource({ baseUrl: localServerInput.value });
+    controller.clearImageCache();
+    reloadCurrentImage();
+  });
 }
 
 /**
@@ -288,7 +318,13 @@ function resetFilters() {
   
   // Disagreements
   document.getElementById('disagreements-only').checked = false;
-  
+
+  // Image source
+  document.getElementById('image-source').value = 'cdn';
+  document.getElementById('crop-type').value = 'display';
+  document.getElementById('local-server-url').style.display = 'none';
+  setLocalImageSource({ enabled: false, cropType: 'display' });
+
   // Update dependent states
   updateHumanFilterCheckboxes();
   updateVisibilityCheckboxes();
@@ -727,6 +763,16 @@ function formatTime(timeStr) {
   const hours = timeStr.substring(0, 2);
   const minutes = timeStr.substring(2, 4);
   return `${hours}:${minutes}`;
+}
+
+/**
+ * Reload the current image (after image source/crop type change)
+ */
+function reloadCurrentImage() {
+  const currentImage = controller.getCurrentImage();
+  if (currentImage) {
+    handleImageChange(currentImage);
+  }
 }
 
 /**
