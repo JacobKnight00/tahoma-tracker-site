@@ -118,6 +118,7 @@ export function capitalize(str) {
  */
 export function snakeToTitle(str) {
   if (!str) return '';
+  if (str === 'off_target') return 'Off-Target';
   return str
     .split('_')
     .map(word => capitalize(word))

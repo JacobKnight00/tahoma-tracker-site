@@ -72,7 +72,7 @@ export class LabelForm {
     // Frame State Group
     const frameStateButtons = [
       this.createButton('good', 'Good', 'frame_state'),
-      this.createButton('off_target', 'Out of Frame', 'frame_state'),
+      this.createButton('off_target', 'Off-Target', 'frame_state'),
       this.createButton('dark', 'Dark', 'frame_state'),
       this.createButton('bad', 'Bad or Blurry', 'frame_state'),
     ];

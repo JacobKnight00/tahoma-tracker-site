@@ -163,8 +163,10 @@ export class TimelineViewer {
    */
   async getMonthlyManifest(year, month) {
     const cacheKey = `${year}-${String(month).padStart(2, '0')}`;
+    const now = new Date();
+    const isCurrentMonth = year === now.getFullYear() && month === (now.getMonth() + 1);
     
-    if (this.monthlyManifestCache.has(cacheKey)) {
+    if (this.monthlyManifestCache.has(cacheKey) && !isCurrentMonth) {
       return this.monthlyManifestCache.get(cacheKey);
     }
     
@@ -1076,6 +1078,89 @@ export class TimelineViewer {
     if (!this.latestBtn) return;
     const atLatest = this.isAtLatestFrame();
     this.latestBtn.disabled = atLatest;
+  }
+
+  /**
+   * Refresh today's timeline data using the latest manifest from polling.
+   * Keeps the current selection stable unless caller indicates latest should stay pinned.
+   */
+  async syncWithLatestData(latestData, options = {}) {
+    const { viewingLatest = false } = options;
+    const latestManifest = latestData?.daily_manifest;
+    if (!latestManifest?.date) {
+      return false;
+    }
+
+    if (this.getDateKey(this.currentDate) !== latestManifest.date) {
+      return false;
+    }
+
+    if (this.isPreparingDay()) {
+      return false;
+    }
+
+    const prevManifestImages = Array.isArray(this.currentDayManifest?.images)
+      ? this.currentDayManifest.images
+      : [];
+    const nextManifestImages = Array.isArray(latestManifest.images)
+      ? latestManifest.images
+      : [];
+
+    const prevCount = prevManifestImages.length;
+    const nextCount = nextManifestImages.length;
+    const prevLastTime = prevManifestImages[prevCount - 1]?.time || null;
+    const nextLastTime = nextManifestImages[nextCount - 1]?.time || null;
+    const manifestChanged = prevCount !== nextCount || prevLastTime !== nextLastTime;
+
+    this.currentDayManifest = latestManifest;
+
+    if (!manifestChanged) {
+      return false;
+    }
+
+    const previousFrame = this.frames[this.currentFrameIndex] || null;
+    const wasAtLatestFrame = this.currentFrameIndex >= Math.max(0, this.frames.length - 1);
+    this.frames = this.buildFramesFromManifest(latestManifest);
+
+    this.currentAlignmentManifest = null;
+    try {
+      this.currentAlignmentManifest = await fetchAlignmentManifest(latestManifest.date);
+    } catch (error) {
+      console.warn(`Failed to refresh alignment manifest for ${latestManifest.date}:`, error);
+    }
+
+    if (this.frames.length === 0) {
+      this.currentFrameIndex = 0;
+      if (this.timeDisplay) {
+        this.timeDisplay.textContent = 'No data';
+      }
+      this.updateCapturedDisplay(null);
+    } else if (viewingLatest || wasAtLatestFrame) {
+      this.currentFrameIndex = this.frames.length - 1;
+    } else if (previousFrame) {
+      this.currentFrameIndex = this.findFrameIndex(previousFrame);
+    } else {
+      this.currentFrameIndex = this.frames.length - 1;
+    }
+
+    const manifestDate = latestManifest.date;
+    const [year, month] = manifestDate.split('-');
+    this.dateStatusCache.delete(manifestDate);
+    this.monthlyManifestCache.delete(`${year}-${month}`);
+
+    this.updateScrubberSegments();
+    this.updateScrubberPosition();
+    this.updateNavigationState();
+    this.updateLatestButton();
+    this.updateNavigationButtons();
+    void this.updateStatsDisplay();
+    this.calendar?.refresh?.();
+
+    if (this.frames.length > 0 && (viewingLatest || wasAtLatestFrame)) {
+      await this.updateView({ skipLoadingState: true });
+    }
+
+    return true;
   }
   
   prevFrame() {

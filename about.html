@@ -111,16 +111,11 @@
               </p>
               <div class="pipeline-stage__labels">
                 <span class="pill pill--positive">Good</span>
-                <span class="pill pill--negative">Off-target</span>
+                <span class="pill pill--negative">Off-Target</span>
                 <span class="pill pill--negative">Dark</span>
                 <span class="pill pill--negative">Bad</span>
               </div>
             </div>
-          </div>
-
-          <div class="pipeline-connector" aria-hidden="true">
-            <span class="pipeline-connector__line"></span>
-            <span class="pipeline-connector__label">if good</span>
           </div>
 
           <div class="pipeline-stage">
@@ -176,7 +171,7 @@
         <p>
           The webcam is fixed to the top of the Space Needle, but the panorama's directional alignment is not always perfect and can be shifted,
           sometimes significantly. The orange box in these images shows where the visibility model's mountain-specific crop region falls.
-          When the camera has drifted, that crop lands on buildings instead of Mount Rainier:
+          You can see that by default, Mount Rainier falls well outside of the tighter mountain crop box:
         </p>
 
         <div class="alignment-examples" aria-label="Alignment before and after">
@@ -205,7 +200,7 @@
           image before extracting a tight crop around Mount Rainier.
         </p>
         <p>
-          The impact was significant: of roughly 9,400 images previously classified as "off-target"
+          The impact was significant: of roughly 9,400 images previously classified as "Off-Target"
           by the old model, alignment recovered over 80% of them. Nearly 1,800 of those turned out
           to have the mountain visible.
         </p>

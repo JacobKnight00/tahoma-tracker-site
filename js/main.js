@@ -216,6 +216,10 @@ async function loadLatestData() {
       const timestampDate = new Date(timestamp);
       timelineViewer.updateCapturedDisplay(timestampDate);
     }
+
+    if (timelineViewer && timelineViewer.frames.length > 0) {
+      void timelineViewer.syncWithLatestData(data, { viewingLatest: isViewingLatest });
+    }
     
     updatePageTitleTense();
     

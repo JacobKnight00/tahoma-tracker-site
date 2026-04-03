@@ -260,4 +260,4 @@ The `imageBaseUrl` points directly to CloudFront (public CDN, no proxy needed).
 
 ## License
 
-Personal side project - not for commercial use.
+Licensed under the MIT License. See [LICENSE](LICENSE).
